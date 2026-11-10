@@ -61,13 +61,22 @@ svg text{fill:var(--muted);font-size:14px}
 .empty{color:var(--muted);font-size:13px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .note{color:var(--muted);font-size:12px;margin-top:8px}
-.bars .bar{display:grid;grid-template-columns:150px 1fr 74px;gap:10px;align-items:center;margin:7px 0;font-size:13px}
+.bars .bar{display:grid;grid-template-columns:170px 1fr 130px;gap:10px;align-items:center;margin:7px 0;font-size:13px}
 .bars .track{height:10px;background:var(--panel2);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
 .bars .fill{height:100%;border-radius:99px;transition:width .25s}
 .bars .num{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px}
 .overall{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
 .overall .big{font-size:28px;font-weight:700}
-@media (max-width:1100px){main{grid-template-columns:1fr}.grid2,.readouts{grid-template-columns:1fr}}
+.piewrap{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:center;margin:8px 0 16px}
+.ph{font-size:13px;margin:0 0 8px;font-weight:600}
+.pielegend{list-style:none;margin:0;padding:0;font-size:13px}
+.pielegend li{margin:4px 0}.pielegend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:8px;vertical-align:-1px}
+.pielegend b{color:var(--muted);font-weight:600}
+.layers{display:flex;flex-direction:column;gap:10px}
+.layer{border-radius:8px;padding:12px 14px;color:#f2f2f4;display:flex;flex-direction:column}
+.layer span{font-size:12px;opacity:.85}.layer big{font-size:26px;font-weight:700}
+.overall-hex{background:#6e6e3a;clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%);align-items:center;text-align:center}
+@media (max-width:1100px){main{grid-template-columns:1fr}.piewrap{grid-template-columns:1fr}.grid2,.readouts{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -150,9 +159,20 @@ svg text{fill:var(--muted);font-size:14px}
 
     <section class="card">
       <h2>World content</h2>
-      <p class="sub">Counted live from the world file. The targets are suggested starter amounts for a first playable world, not limits.</p>
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <p class="sub" style="max-width:640px">Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
+        <div class="templates" id="goal" style="grid-template-columns:1fr 1fr;min-width:340px"></div>
+      </div>
       <div class="overall"><span class="big" id="overallPct">0%</span><span class="empty" id="overallTxt"></span></div>
+      <div class="piewrap">
+        <div><h3 class="ph">Completion by area</h3>
+          <div class="row" style="align-items:center;gap:20px"><svg id="pie" viewBox="0 0 260 260" width="260" height="260" role="img"></svg><ul class="pielegend" id="pieLegend"></ul></div>
+          <p class="note">Each area scores 0-100 (amount toward your goal × share ready). Slices show each area's share of the total score.</p></div>
+        <div class="layers" id="layers"></div>
+      </div>
       <div class="bars" id="bars"></div>
+      <h2 style="margin-top:14px">What's missing</h2>
+      <ul class="changes" id="gaps"></ul>
     </section>
   </div>
 </main>
@@ -231,20 +251,40 @@ const TEMPLATES = [
   {name:"Long campaign", desc:"Slow, steady growth over many sessions.", set:{xp0:1500,xpStep:650,attrEvery:5,hpGain:9}},
 ];
 
-// ---------- Content targets ----------
+// ---------- Content readiness ----------
+// count: how much there is (stage label only). ready: share of records that are filled in AND wired so play can reach them.
+const filled = v => Array.isArray(v) ? v.length>0 : typeof v==="string" ? v.trim().length>0 : v!=null;
+const has = (...ks) => r => ks.every(k=>filled(r[k]));
+function refs(w){
+  const quests=new Set(), events=new Set(); let scripts="";
+  Object.values(w.storyStarts||{}).forEach(st=>(st.startingQuests||[]).forEach(q=>quests.add(q)));
+  (function walk(o){
+    if(Array.isArray(o)){o.forEach(walk);return;}
+    if(!o||typeof o!=="object")return;
+    if(["quest-init","quest-accept","quest-plan"].includes(o.type)&&o.value) quests.add(o.value);
+    if(o.type==="narrative-event-start"&&o.eventId) events.add(o.eventId);
+    if(typeof o.script==="string") scripts+="\n"+o.script;
+    Object.values(o).forEach(walk);
+  })([w.triggers,w.questTriggers,w.quests,w.narrativeEvents,w.storyStarts]);
+  const hit=(set,k,r)=>set.has(k)||(r&&r.name&&set.has(r.name))||scripts.includes(k);
+  return {quest:(k,r)=>hit(quests,k,r), event:(k,r)=>hit(events,k,r)};
+}
 const CONTENT = [
-  {name:"Lore", keys:["worldLore"], target:8},
-  {name:"Places", keys:["regions","locations"], target:10},
-  {name:"Factions", keys:["factions"], target:3},
-  {name:"NPCs", keys:["npcs"], target:12},
-  {name:"NPC types", keys:["npcTypes"], target:4},
-  {name:"Story starts", keys:["storyStarts"], target:2},
-  {name:"Quests", keys:["quests"], target:4},
-  {name:"Narrative events", keys:["narrativeEvents"], target:2},
-  {name:"Skills / abilities / traits", keys:["skills","abilities","traits"], target:20},
-  {name:"Items", keys:["itemTypes"], target:10},
-  {name:"Triggers", keys:["triggers"], target:4},
+  {name:"Lore", keys:["worldLore"], stages:[5,40], ready:has("text"), need:"text"},
+  {name:"Places", keys:["regions","locations"], stages:[6,60], ready:has("basicInfo"), need:"a basic description"},
+  {name:"Factions", keys:["factions"], stages:[2,8], ready:has("basicInfo"), need:"a basic description"},
+  {name:"NPCs", keys:["npcs"], stages:[6,60], ready:has("basicInfo","personality","visualDescription","currentLocation"), need:"description, personality, looks and a location"},
+  {name:"NPC types", keys:["npcTypes"], stages:[2,10], ready:has("description"), need:"a description"},
+  {name:"Story starts", keys:["storyStarts"], stages:[1,6], ready:r=>filled(r.storyStart)&&filled(r.locations), need:"opening text and a location"},
+  {name:"Quests", keys:["quests"], stages:[3,30], ready:(r,k,R)=>R.quest(k,r)&&filled(r.questStatement||r.mainObjective), need:"a way to reach the player (a start's quests or a trigger)"},
+  {name:"Narrative events", keys:["narrativeEvents"], stages:[1,10], ready:(r,k,R)=>R.event(k,r)&&filled(r.beats), need:"beats and something that starts them"},
+  {name:"Skills / abilities / traits", keys:["skills","abilities","traits"], stages:[10,80], ready:has("description"), need:"a description"},
+  {name:"Items", keys:["itemTypes"], stages:[8,60], ready:has("description"), need:"a description"},
 ];
+const PIE=["#4a4a7a","#7a5a32","#4f6e3a","#7a3a4c","#2f6e66","#8a6a2a","#6e6e3a","#3a5e8a","#8a4a6e","#5e7a5a"];
+const SETTING=["Lore","Places","Factions"];
+const GOALS=[{name:"Starter world",desc:"Enough to play a first session."},{name:"Full world",desc:"A finished, detailed world ready to publish."}];
+let goal=0;
 
 // ---------- State ----------
 let base = clone(DEFAULT_WORLD);   // the loaded world, untouched
@@ -403,17 +443,47 @@ function drawChanges(){
 
 // ---------- Content ----------
 function drawContent(){
-  let sum=0;
+  const R=refs(work); const gaps=[], scores=[];
+  [...$("goal").children].forEach((b,i)=>{b.classList.toggle("active",goal===i);b.setAttribute("aria-pressed",String(goal===i));});
   $("bars").innerHTML=CONTENT.map(c=>{
-    const n=c.keys.reduce((t,k)=>t+Object.keys(work[k]||{}).length,0);
-    const f=Math.min(1,n/c.target); sum+=f;
-    const col=f>=1?"var(--good)":f>=.5?"var(--avg)":"var(--bad)";
-    return `<div class="bar"><span>${c.name}</span><div class="track"><div class="fill" style="width:${(f*100).toFixed(0)}%;background:${col}"></div></div><span class="num">${n} / ${c.target}</span></div>`;
+    const recs=c.keys.flatMap(k=>Object.entries(work[k]||{}));
+    const n=recs.length, ok=recs.filter(([k,r])=>r&&typeof r==="object"&&c.ready(r,k,R)).length;
+    const target=c.stages[goal], amount=Math.min(1,ok/target), rd=n?ok/n:0;
+    scores.push({name:c.name,score:Math.round(amount*rd*100)});
+    if(n&&ok<n) gaps.push(`${c.name}: ${n-ok} not ready yet (needs ${c.need})`);
+    if(ok<target) gaps.push(`${c.name}: ${target-ok} more ready ${target-ok===1?"entry":"entries"} for a ${GOALS[goal].name.toLowerCase()}`);
+    const sc=amount*rd, col=sc>=.95?"var(--good)":sc>=.5?"var(--avg)":"var(--bad)";
+    return `<div class="bar"><span>${c.name}</span><div class="track"><div class="fill" style="width:${(sc*100).toFixed(0)}%;background:${col}"></div></div><span class="num">${ok} / ${target}${n?` · ${Math.floor(rd*100)}% ready`:""}</span></div>`;
   }).join("");
-  const p=Math.round(sum/CONTENT.length*100);
-  $("overallPct").textContent=p+"%";
-  const missing=CONTENT.filter(c=>c.keys.reduce((t,k)=>t+Object.keys(work[k]||{}).length,0)===0).map(c=>c.name);
-  $("overallTxt").textContent=missing.length?"Not started: "+missing.join(", "):"Every area has a start.";
+  $("overallPct").textContent=Math.floor(scores.reduce((t,x)=>t+x.score,0)/scores.length)+"%";
+  drawPie(scores);
+  const empty=CONTENT.filter(c=>!c.keys.some(k=>Object.keys(work[k]||{}).length)).map(c=>c.name);
+  $("overallTxt").textContent=`of a ${GOALS[goal].name.toLowerCase()}. `+(empty.length?"Not started: "+empty.join(", "):"Every area has a start.");
+  $("gaps").innerHTML=gaps.length?gaps.map(g=>`<li>${esc(g)}</li>`).join(""):`<li class="empty">Nothing missing for a ${GOALS[goal].name.toLowerCase()}.</li>`;
+}
+
+function drawPie(scores){
+  const total=scores.reduce((t,x)=>t+x.score,0), cx=130, cy=130, r=118;
+  let s="", ang=-Math.PI/2;
+  if(!total) s=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--panel2)" stroke="var(--line)"/><text x="${cx}" y="${cy+5}" text-anchor="middle">Nothing ready yet</text>`;
+  scores.forEach((x,i)=>{
+    if(!x.score) return;
+    const f=x.score/total, a2=ang+f*2*Math.PI, large=f>.5?1:0;
+    const p=(a)=>`${(cx+r*Math.cos(a)).toFixed(1)},${(cy+r*Math.sin(a)).toFixed(1)}`;
+    s+= f>=0.999 ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${PIE[i%PIE.length]}" stroke="#111" stroke-width="2"/>`
+                 : `<path d="M${cx},${cy} L${p(ang)} A${r},${r} 0 ${large} 1 ${p(a2)} Z" fill="${PIE[i%PIE.length]}" stroke="#111" stroke-width="2"/>`;
+    if(f>=.04){const m=(ang+a2)/2;s+=`<text x="${(cx+r*.66*Math.cos(m)).toFixed(1)}" y="${(cy+r*.66*Math.sin(m)+5).toFixed(1)}" text-anchor="middle" style="fill:#f2f2f4;font-weight:600">${Math.round(f*100)}%</text>`;}
+    ang=a2;
+  });
+  $("pie").innerHTML=s;
+  $("pie").setAttribute("aria-label","Completion by area: "+scores.map(x=>`${x.name} ${x.score}`).join(", "));
+  $("pieLegend").innerHTML=scores.map((x,i)=>`<li><i style="background:${PIE[i%PIE.length]}"></i>${esc(x.name)} <b>[${x.score}]</b></li>`).join("");
+  const avg=names=>{const v=scores.filter(x=>names(x.name));return v.length?Math.round(v.reduce((t,x)=>t+x.score,0)/v.length):0;};
+  const set=avg(n=>SETTING.includes(n)), play=avg(n=>!SETTING.includes(n));
+  $("layers").innerHTML=`
+    <div class="layer" style="background:#2f5e58"><b>Authored setting</b><span>lore, places, factions</span><big>${set}%</big></div>
+    <div class="layer" style="background:#6a3446"><b>Active play layer</b><span>NPCs, quests, events, starts, mechanics, items</span><big>${play}%</big></div>
+    <div class="layer overall-hex"><b>Overall</b><big>${$("overallPct").textContent}</big><span>as a ${GOALS[goal].name.toLowerCase()}</span></div>`;
 }
 
 // ---------- Render ----------
@@ -455,7 +525,9 @@ $("export").onclick=()=>{
 };
 $("diff").onchange=render; $("lvl").onchange=render;
 
-buildLevels(); buildFields(); buildTemplates(); render();
+buildLevels(); buildFields(); buildTemplates();
+GOALS.forEach((g,i)=>{const b=document.createElement("button");b.className="tpl";b.innerHTML=`<b>${g.name}</b><span>${g.desc}</span>`;b.onclick=()=>{goal=i;drawContent();};$("goal").appendChild(b);});
+render();
 window.__tuner={loadWorld,FIELDS,cur,was,TEMPLATES,work:()=>work};
 </script>
 </body>
