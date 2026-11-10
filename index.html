@@ -119,6 +119,23 @@ svg text{fill:var(--muted);font-size:14px}
       <div class="readouts" id="readouts" aria-live="polite" style="margin-top:12px"></div>
     </section>
 
+    <section class="card">
+      <h2>World content</h2>
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <p class="sub" style="max-width:640px">Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
+        <div class="templates" id="goal" style="grid-template-columns:1fr 1fr;min-width:340px"></div>
+      </div>
+      <div class="overall"><span class="big" id="overallPct">0%</span><span class="empty" id="overallTxt"></span></div>
+      <div class="piewrap">
+        <div><h3 class="ph">Completion by area</h3>
+          <div class="row" style="align-items:center;gap:20px"><svg id="pie" viewBox="0 0 260 260" width="260" height="260" role="img"></svg><ul class="pielegend" id="pieLegend"></ul></div>
+          <p class="note">Each area scores 0-100 (amount toward your goal × share ready). Slices show each area's share of the total score.</p></div>
+        <div class="layers" id="layers"></div>
+      </div>
+      <div class="bars" id="bars"></div>
+      <h2 style="margin-top:14px">What's missing</h2>
+      <ul class="changes" id="gaps"></ul>
+    </section>
     <div class="grid2">
       <section class="card">
         <h2>Health by level</h2>
@@ -157,23 +174,6 @@ svg text{fill:var(--muted);font-size:14px}
       </section>
     </div>
 
-    <section class="card">
-      <h2>World content</h2>
-      <div class="row" style="justify-content:space-between;align-items:flex-start">
-        <p class="sub" style="max-width:640px">Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
-        <div class="templates" id="goal" style="grid-template-columns:1fr 1fr;min-width:340px"></div>
-      </div>
-      <div class="overall"><span class="big" id="overallPct">0%</span><span class="empty" id="overallTxt"></span></div>
-      <div class="piewrap">
-        <div><h3 class="ph">Completion by area</h3>
-          <div class="row" style="align-items:center;gap:20px"><svg id="pie" viewBox="0 0 260 260" width="260" height="260" role="img"></svg><ul class="pielegend" id="pieLegend"></ul></div>
-          <p class="note">Each area scores 0-100 (amount toward your goal × share ready). Slices show each area's share of the total score.</p></div>
-        <div class="layers" id="layers"></div>
-      </div>
-      <div class="bars" id="bars"></div>
-      <h2 style="margin-top:14px">What's missing</h2>
-      <ul class="changes" id="gaps"></ul>
-    </section>
   </div>
 </main>
 
