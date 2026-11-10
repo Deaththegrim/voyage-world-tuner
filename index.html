@@ -129,7 +129,7 @@ svg text{fill:var(--muted);font-size:14px}
       <div class="piewrap">
         <div><h3 class="ph">Completion by area</h3>
           <div class="row" style="align-items:center;gap:20px"><svg id="pie" viewBox="0 0 260 260" width="260" height="260" role="img"></svg><ul class="pielegend" id="pieLegend"></ul></div>
-          <p class="note">Each area scores 0-100 (amount toward your goal × share ready). Slices show each area's share of the total score.</p></div>
+          <p class="note">Every area gets an equal wedge. The coloured part fills outward with its score (amount toward your goal × share ready), so a full wedge is done and a short one shows the gap.</p></div>
         <div class="layers" id="layers"></div>
       </div>
       <div class="bars" id="bars"></div>
@@ -463,17 +463,16 @@ function drawContent(){
 }
 
 function drawPie(scores){
-  const total=scores.reduce((t,x)=>t+x.score,0), cx=130, cy=130, r=118;
-  let s="", ang=-Math.PI/2;
-  if(!total) s=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--panel2)" stroke="var(--line)"/><text x="${cx}" y="${cy+5}" text-anchor="middle">Nothing ready yet</text>`;
+  // Equal wedge per area; the coloured part grows from the centre by the area's score (by area, so 50 fills half the wedge).
+  const cx=130, cy=130, r=118, n=scores.length, step=2*Math.PI/n;
+  const pt=(rad,a)=>`${(cx+rad*Math.cos(a)).toFixed(1)},${(cy+rad*Math.sin(a)).toFixed(1)}`;
+  const wedge=(rad,a1,a2)=>`M${cx},${cy} L${pt(rad,a1)} A${rad},${rad} 0 0 1 ${pt(rad,a2)} Z`;
+  let s="";
   scores.forEach((x,i)=>{
-    if(!x.score) return;
-    const f=x.score/total, a2=ang+f*2*Math.PI, large=f>.5?1:0;
-    const p=(a)=>`${(cx+r*Math.cos(a)).toFixed(1)},${(cy+r*Math.sin(a)).toFixed(1)}`;
-    s+= f>=0.999 ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${PIE[i%PIE.length]}" stroke="#111" stroke-width="2"/>`
-                 : `<path d="M${cx},${cy} L${p(ang)} A${r},${r} 0 ${large} 1 ${p(a2)} Z" fill="${PIE[i%PIE.length]}" stroke="#111" stroke-width="2"/>`;
-    if(f>=.04){const m=(ang+a2)/2;s+=`<text x="${(cx+r*.66*Math.cos(m)).toFixed(1)}" y="${(cy+r*.66*Math.sin(m)+5).toFixed(1)}" text-anchor="middle" style="fill:#f2f2f4;font-weight:600">${Math.round(f*100)}%</text>`;}
-    ang=a2;
+    const a1=-Math.PI/2+i*step, a2=a1+step, m=(a1+a2)/2, rf=r*Math.sqrt(x.score/100);
+    s+=`<path d="${wedge(r,a1,a2)}" fill="var(--panel2)" stroke="#111" stroke-width="2"/>`;
+    if(x.score>0) s+=`<path d="${wedge(rf,a1,a2)}" fill="${PIE[i%PIE.length]}" stroke="#111" stroke-width="2"/>`;
+    s+=`<text x="${pt(r*.72,m).split(",")[0]}" y="${(+pt(r*.72,m).split(",")[1]+5).toFixed(1)}" text-anchor="middle" style="fill:#f2f2f4;font-weight:600">${x.score}</text>`;
   });
   $("pie").innerHTML=s;
   $("pie").setAttribute("aria-label","Completion by area: "+scores.map(x=>`${x.name} ${x.score}`).join(", "));
