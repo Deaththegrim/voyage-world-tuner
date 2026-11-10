@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Tuner — Voyage Studio mockup</title>
+<style>
+:root{
+  --bg:#111214; --panel:#191a1d; --panel2:#202125; --line:#2c2d32; --text:#e8e8ea; --muted:#9a9ba3;
+  --accent:#4aa3ff; --player:#3fc1a5; --avg:#d9a441; --strong:#e07a4a; --boss:#c8508a;
+  --good:#5cc27a; --bad:#e0645a; --radius:10px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:17px;margin:0;font-weight:600}
+header .src{color:var(--muted);font-size:13px}
+header .spacer{flex:1}
+button,select,.filebtn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}
+button:hover,.filebtn:hover{border-color:var(--accent)}
+button:focus-visible,select:focus-visible,input:focus-visible,.filebtn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#06121f;font-weight:600}
+.filebtn input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.filebtn{position:relative}
+main{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px 20px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.card h2{font-size:14px;margin:0 0 4px;font-weight:600}
+.card .sub{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.stack{display:flex;flex-direction:column;gap:16px}
+.templates{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tpl{text-align:left;padding:10px;border-radius:8px}
+.tpl b{display:block;font-size:13px}
+.tpl span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.tpl.active{border-color:var(--accent);background:#1b2a3a}
+.field{margin:12px 0}
+.field label{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.field label output{font-variant-numeric:tabular-nums;font-weight:600}
+.field .base{color:var(--muted);font-size:11.5px}
+.field .base.changed{color:var(--accent)}
+.field input[type=range]{width:100%;accent-color:var(--accent)}
+.field .hint{color:var(--muted);font-size:12px}
+.field .path{color:var(--muted);font:11px ui-monospace,monospace;overflow-wrap:anywhere}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.readouts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.ro{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
+.ro .k{color:var(--muted);font-size:12px}
+.ro .v{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;margin:2px 0}
+.ro .d{font-size:12px}
+.tag{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11.5px;font-weight:600}
+.tag.harder{background:#3a1f1d;color:#f29a91}.tag.easier{background:#1a3324;color:#8fe0a8}.tag.same{background:#26272c;color:var(--muted)}
+.tag.slower{background:#2f2a1a;color:#e7c46d}.tag.faster{background:#1a2b3a;color:#8cc4f5}
+svg text{fill:var(--muted);font-size:14px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+.legend i.dash{background:none;border-top:2px dashed #999;height:0}
+.changes{list-style:none;margin:0;padding:0}
+.changes li{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.changes li:last-child{border-bottom:none}
+.changes code{font:12px ui-monospace,monospace;color:#b7b8c0}
+.changes .why{color:var(--muted);font-size:12px;margin-top:2px}
+.empty{color:var(--muted);font-size:13px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.note{color:var(--muted);font-size:12px;margin-top:8px}
+.bars .bar{display:grid;grid-template-columns:150px 1fr 74px;gap:10px;align-items:center;margin:7px 0;font-size:13px}
+.bars .track{height:10px;background:var(--panel2);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.bars .fill{height:100%;border-radius:99px;transition:width .25s}
+.bars .num{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px}
+.overall{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.overall .big{font-size:28px;font-weight:700}
+@media (max-width:1100px){main{grid-template-columns:1fr}.grid2,.readouts{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>World Tuner</h1>
+  <span class="src" id="src">Voyage default settings (no world loaded)</span>
+  <span class="spacer"></span>
+  <label class="filebtn">Load world.json<input type="file" id="file" accept=".json,application/json"></label>
+  <button id="reset">Reset to loaded</button>
+  <button class="primary" id="export">Export changed world</button>
+</header>
+
+<main>
+  <div class="stack">
+    <section class="card">
+      <h2>Start from a template</h2>
+      <p class="sub">Each one starts from the loaded world and fills in the fields below. Every change it makes shows up under "What changed".</p>
+      <div class="templates" id="templates"></div>
+    </section>
+    <section class="card">
+      <h2>Tuning</h2>
+      <p class="sub">Drag a slider and the charts redraw. Grey numbers are the loaded world's value.</p>
+      <div id="fields"></div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h2>How it will feel</h2><p class="sub" style="margin:0">Compared with the loaded world. Calculated from the engine's own formulas, no AI guessing.</p></div>
+        <div class="row">
+          <label for="diff" class="empty">Player difficulty</label>
+          <select id="diff">
+            <option value="0.5">Very easy</option><option value="0.75">Easy</option><option value="1" selected>Normal</option><option value="1.25">Hard</option><option value="1.5">Very hard</option>
+          </select>
+          <label for="lvl" class="empty">Compare at level</label>
+          <select id="lvl"></select>
+        </div>
+      </div>
+      <div class="readouts" id="readouts" aria-live="polite" style="margin-top:12px"></div>
+    </section>
+
+    <div class="grid2">
+      <section class="card">
+        <h2>Health by level</h2>
+        <p class="sub">The player's health against an NPC of the same level. Dashed lines are the loaded world.</p>
+        <svg id="hpChart" viewBox="0 0 520 260" width="100%" role="img" aria-label="Health by level chart"></svg>
+        <div class="legend">
+          <span><i style="background:var(--player)"></i>Player</span>
+          <span><i style="background:var(--avg)"></i>Average NPC</span>
+          <span><i style="background:var(--strong)"></i>Elite NPC</span>
+          <span><i style="background:var(--boss)"></i>Boss NPC</span>
+          <span><i class="dash"></i>Before your changes</span>
+        </div>
+        <p class="note" id="hpNote"></p>
+      </section>
+      <section class="card">
+        <h2>XP needed to reach each level</h2>
+        <p class="sub">Total XP from level 1. A steeper line means a slower climb.</p>
+        <svg id="xpChart" viewBox="0 0 520 260" width="100%" role="img" aria-label="XP curve chart"></svg>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>Now</span>
+          <span><i class="dash"></i>Before your changes</span>
+        </div>
+      </section>
+    </div>
+
+    <div class="grid2">
+      <section class="card">
+        <h2>What a new character adds to a roll</h2>
+        <p class="sub">The attribute part of a skill check, (attribute − 10) × bonus per point, before any creator pick or trait raises it.</p>
+        <svg id="rollChart" viewBox="0 0 520 220" width="100%" role="img" aria-label="Starting roll bonus chart"></svg>
+      </section>
+      <section class="card">
+        <h2>What changed</h2>
+        <p class="sub">In plain words, the effect each edit has in play.</p>
+        <ul class="changes" id="changes" aria-live="polite"></ul>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>World content</h2>
+      <p class="sub">Counted live from the world file. The targets are suggested starter amounts for a first playable world, not limits.</p>
+      <div class="overall"><span class="big" id="overallPct">0%</span><span class="empty" id="overallTxt"></span></div>
+      <div class="bars" id="bars"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+// ---------- Voyage defaults (blank V37 export) ----------
+const DEFAULT_WORLD = {
+  heroesVersion: 37,
+  attributeSettings:{attributeNames:["strength","dexterity","constitution","intelligence","wisdom","charisma"],startingAttributeValue:8,maxStartingAttribute:16,attributeBonusModifier:2.5},
+  resourceSettings:{health:{name:"health",initialValue:80,maxValue:80,rechargeRate:1,gainPerLevel:10,isHealth:true}},
+  otherSettings:{npcHealthPerLevel:12,npcMinHealth:66},
+  progressionSettings:{startingCharacterLevelUpRequirement:1000,extraRequiredXPPerCharacterLevel:400,maxCharacterLevel:100,attributePointEveryLevels:5,attributePointsPerGrant:1},
+  worldLore:{},regions:{},locations:{},factions:{},npcs:{},npcTypes:{},storyStarts:{},quests:{},narrativeEvents:{},skills:{},abilities:{},traits:{},itemTypes:{},triggers:{}
+};
+
+// NPC tier multipliers (engine): trivial .15 weak .5 average 1 strong 1.25 elite 1.5 boss 1.7 mythic 1.85
+const TIERS = [{k:"avg",name:"Average",m:1,color:"var(--avg)"},{k:"strong",name:"Elite",m:1.5,color:"var(--strong)"},{k:"boss",name:"Boss",m:1.7,color:"var(--boss)"}];
+
+function healthKey(w){
+  const rs = w.resourceSettings||{};
+  return Object.keys(rs).find(k=>rs[k]&&rs[k].isHealth) || Object.keys(rs).find(k=>k.toLowerCase()==="health") || "health";
+}
+const H = w => { w.resourceSettings = w.resourceSettings||{}; const k=healthKey(w); w.resourceSettings[k]=w.resourceSettings[k]||{name:k,isHealth:true}; return w.resourceSettings[k]; };
+const sect = (w,s) => (w[s] = w[s]||{});
+const rd = (w,s,k) => (w[s]||{})[k];
+const hrd = (w,k) => ((w.resourceSettings||{})[healthKey(w)]||{})[k];
+const esc = v => String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+// ---------- Tunable fields ----------
+const FIELDS = [
+  {id:"startAttr", label:"Starting attribute value", path:"attributeSettings.startingAttributeValue", min:4,max:16,step:1,
+   get:w=>rd(w,"attributeSettings","startingAttributeValue"), set:(w,v)=>sect(w,"attributeSettings").startingAttributeValue=v,
+   hint:"Every attribute starts here. 10 is neutral on rolls.",
+   why:(a,b)=>`New characters start ${b>a?"stronger":"weaker"}: every roll shifts ${fmtSigned((b-a)*cur("attrMod"))} before skills.`},
+  {id:"attrMod", label:"Roll bonus per attribute point", path:"attributeSettings.attributeBonusModifier", min:0,max:5,step:0.5,
+   get:w=>rd(w,"attributeSettings","attributeBonusModifier"), set:(w,v)=>sect(w,"attributeSettings").attributeBonusModifier=v,
+   hint:"How much each point above or below 10 moves a skill check.",
+   why:(a,b)=>`Attributes matter ${b>a?"more":"less"} on rolls, so builds feel ${b>a?"more":"less"} different from each other.`},
+  {id:"hp0", label:"Player starting health", path:"resourceSettings.&lt;health&gt;.initialValue + maxValue", min:20,max:300,step:5,
+   get:w=>hrd(w,"maxValue"), set:(w,v)=>{H(w).maxValue=v;H(w).initialValue=v;},
+   hint:"Sets both starting and maximum health.",
+   why:(a,b)=>`Level 1 characters can take ${b>a?"more":"fewer"} hits before going down (${pct(a,b)}).`},
+  {id:"hpGain", label:"Player health gain per level", path:"resourceSettings.&lt;health&gt;.gainPerLevel", min:0,max:40,step:1,
+   get:w=>hrd(w,"gainPerLevel"), set:(w,v)=>H(w).gainPerLevel=v,
+   hint:"Added to max health on every level up.",
+   why:(a,b)=>`Players ${b>a?"pull ahead of":"fall behind"} enemies as they level. Felt most from level 10 on.`},
+  {id:"npcHpLvl", label:"NPC health gain per level", path:"otherSettings.npcHealthPerLevel", min:0,max:40,step:1,
+   get:w=>rd(w,"otherSettings","npcHealthPerLevel"), set:(w,v)=>sect(w,"otherSettings").npcHealthPerLevel=v,
+   hint:"Only for NPCs without a hand-set max HP.",
+   why:(a,b)=>`Higher level enemies get ${b>a?"tankier":"softer"}, so fights run ${b>a?"longer":"shorter"} later on.`},
+  {id:"npcMin", label:"NPC base health", path:"otherSettings.npcMinHealth", min:10,max:200,step:2,
+   get:w=>rd(w,"otherSettings","npcMinHealth"), set:(w,v)=>sect(w,"otherSettings").npcMinHealth=v,
+   hint:"Every NPC's health floor before level scaling.",
+   why:(a,b)=>`Early fights run ${b>a?"longer":"shorter"}. This matters most at low levels.`},
+  {id:"xp0", label:"XP for the first level up", path:"progressionSettings.startingCharacterLevelUpRequirement", min:100,max:3000,step:50,
+   get:w=>rd(w,"progressionSettings","startingCharacterLevelUpRequirement"), set:(w,v)=>sect(w,"progressionSettings").startingCharacterLevelUpRequirement=v,
+   hint:"How soon the first level up arrives.",
+   why:(a,b)=>`The first level up comes ${b>a?"later":"sooner"} (${pct(a,b)}).`},
+  {id:"xpStep", label:"Extra XP needed per level", path:"progressionSettings.extraRequiredXPPerCharacterLevel", min:0,max:1500,step:50,
+   get:w=>rd(w,"progressionSettings","extraRequiredXPPerCharacterLevel"), set:(w,v)=>sect(w,"progressionSettings").extraRequiredXPPerCharacterLevel=v,
+   hint:"How much harder each next level gets.",
+   why:(a,b)=>`Later levels come ${b>a?"slower":"faster"}. A long campaign ${b>a?"keeps something to chase":"tops out sooner"}.`},
+  {id:"attrEvery", label:"Attribute point every N levels", path:"progressionSettings.attributePointEveryLevels", min:1,max:10,step:1,
+   get:w=>rd(w,"progressionSettings","attributePointEveryLevels"), set:(w,v)=>sect(w,"progressionSettings").attributePointEveryLevels=v,
+   hint:"Lower means characters grow their attributes more often.",
+   why:(a,b)=>`Characters raise attributes ${b<a?"more":"less"} often (every ${b} levels instead of ${a}).`},
+];
+
+// ---------- Templates ----------
+const TEMPLATES = [
+  {name:"Voyage default", desc:"The blank world's numbers.", set:{startAttr:8,attrMod:2.5,hp0:80,hpGain:10,npcHpLvl:12,npcMin:66,xp0:1000,xpStep:400,attrEvery:5}},
+  {name:"Story first", desc:"Gentler fights. Room to explore and talk.", set:{startAttr:12,hp0:110,hpGain:14,npcHpLvl:10,npcMin:56}},
+  {name:"A bit harder", desc:"Players grow slower than enemies.", set:{hpGain:8,npcHpLvl:14}},
+  {name:"Gritty and lethal", desc:"Low health, tough foes. Every fight costs.", set:{startAttr:8,hp0:55,hpGain:6,npcHpLvl:14,npcMin:80}},
+  {name:"Power fantasy", desc:"Strong from the start, fast levels.", set:{startAttr:12,attrMod:3,hp0:140,hpGain:18,npcHpLvl:10,xp0:600,xpStep:250,attrEvery:3}},
+  {name:"Long campaign", desc:"Slow, steady growth over many sessions.", set:{xp0:1500,xpStep:650,attrEvery:5,hpGain:9}},
+];
+
+// ---------- Content targets ----------
+const CONTENT = [
+  {name:"Lore", keys:["worldLore"], target:8},
+  {name:"Places", keys:["regions","locations"], target:10},
+  {name:"Factions", keys:["factions"], target:3},
+  {name:"NPCs", keys:["npcs"], target:12},
+  {name:"NPC types", keys:["npcTypes"], target:4},
+  {name:"Story starts", keys:["storyStarts"], target:2},
+  {name:"Quests", keys:["quests"], target:4},
+  {name:"Narrative events", keys:["narrativeEvents"], target:2},
+  {name:"Skills / abilities / traits", keys:["skills","abilities","traits"], target:20},
+  {name:"Items", keys:["itemTypes"], target:10},
+  {name:"Triggers", keys:["triggers"], target:4},
+];
+
+// ---------- State ----------
+let base = clone(DEFAULT_WORLD);   // the loaded world, untouched
+let work = clone(DEFAULT_WORLD);   // the working copy the sliders edit
+let fileName = null;
+let activeTpl = null;
+
+function clone(o){return JSON.parse(JSON.stringify(o));}
+function num(v,d){v=Number(v);return Number.isFinite(v)?v:d;}
+function val(w,id){const f=FIELDS.find(f=>f.id===id);const d=f.get(clone(DEFAULT_WORLD));return num(f.get(w),d);}
+const cur = id => val(work,id), was = id => val(base,id);
+function fmt(n){return Math.round(n).toLocaleString();}
+function fmtSigned(n){n=Math.round(n*10)/10;return (n>0?"+":n<0?"−":"±")+Math.abs(n);}
+function pct(a,b){if(!a)return "new";const p=Math.round((b-a)/a*100);return (p>0?"+":"")+p+"%";}
+
+// ---------- Engine formulas ----------
+const playerHP = (w,L) => val(w,"hp0") + val(w,"hpGain")*(L-1);
+const npcHP = (w,L,tier,diff) => (val(w,"npcHpLvl")*L + val(w,"npcMin")) * tier * diff;
+function xpTo(w,L){ // total XP from level 1 to level L
+  const a=val(w,"xp0"), s=val(w,"xpStep"); let t=0;
+  for(let l=1;l<L;l++) t += a + s*(l-1);
+  return t;
+}
+const rollBonus = (w,attr) => (attr-10)*val(w,"attrMod");
+
+// ---------- UI build ----------
+const $ = id => document.getElementById(id);
+function buildTemplates(){
+  $("templates").innerHTML = "";
+  TEMPLATES.forEach((t,i)=>{
+    const b=document.createElement("button");
+    b.className="tpl"; b.setAttribute("aria-pressed","false");
+    b.innerHTML=`<b>${t.name}</b><span>${t.desc}</span>`;
+    b.onclick=()=>{ activeTpl=i; work=clone(base); for(const [id,v] of Object.entries(t.set)) FIELDS.find(f=>f.id===id).set(work,v); render(); };
+    $("templates").appendChild(b);
+  });
+}
+function buildFields(){
+  $("fields").innerHTML = FIELDS.map(f=>`
+    <div class="field">
+      <label for="f_${f.id}"><span>${f.label}</span><output id="o_${f.id}"></output></label>
+      <input type="range" id="f_${f.id}" min="${f.min}" max="${f.max}" step="${f.step}">
+      <div class="row" style="justify-content:space-between"><span class="hint">${f.hint}</span><span class="base" id="b_${f.id}"></span></div>
+      <div class="path">${f.path}</div>
+    </div>`).join("");
+  FIELDS.forEach(f=>{
+    $("f_"+f.id).addEventListener("input",e=>{ f.set(work,Number(e.target.value)); activeTpl=null; render(); });
+  });
+}
+function buildLevels(){
+  $("lvl").innerHTML=[5,10,20,30,50].map(l=>`<option value="${l}"${l===10?" selected":""}>${l}</option>`).join("");
+}
+
+// ---------- Charts ----------
+const PAD={l:48,r:12,t:12,b:28};
+function axes(svg,W,Hh,xMax,yMax,xLabel){
+  let s="";
+  const ticks=5;
+  for(let i=0;i<=ticks;i++){
+    const y=PAD.t+(Hh-PAD.t-PAD.b)*(1-i/ticks), v=yMax*i/ticks;
+    s+=`<line x1="${PAD.l}" x2="${W-PAD.r}" y1="${y}" y2="${y}" stroke="#2a2b30"/>`;
+    s+=`<text x="${PAD.l-6}" y="${y+4}" text-anchor="end">${v>=10000?Math.round(v/1000)+"k":fmt(v)}</text>`;
+  }
+  [1,Math.round(xMax/4),Math.round(xMax/2),Math.round(xMax*3/4),xMax].forEach(L=>{
+    const x=PAD.l+(W-PAD.l-PAD.r)*(L-1)/(xMax-1);
+    s+=`<text x="${x}" y="${Hh-8}" text-anchor="middle">${L}</text>`;
+  });
+  s+=`<text x="${W-PAD.r}" y="${Hh-8}" text-anchor="end" style="display:none">${xLabel}</text>`;
+  return s;
+}
+function linePath(pts,W,Hh,xMax,yMax){
+  return pts.map((y,i)=>{
+    const L=i+1, x=PAD.l+(W-PAD.l-PAD.r)*(L-1)/(xMax-1), yy=PAD.t+(Hh-PAD.t-PAD.b)*(1-y/yMax);
+    return (i?"L":"M")+x.toFixed(1)+","+yy.toFixed(1);
+  }).join("");
+}
+function drawHP(){
+  const W=520,Hh=260, maxL=Math.max(30,Number($("lvl").value)), diff=Number($("diff").value);
+  const series=[], ghosts=[];
+  const lv=[...Array(maxL)].map((_,i)=>i+1);
+  series.push({c:"var(--player)",d:lv.map(L=>playerHP(work,L))});
+  ghosts.push({c:"var(--player)",d:lv.map(L=>playerHP(base,L))});
+  TIERS.forEach(t=>{
+    series.push({c:t.color,d:lv.map(L=>npcHP(work,L,t.m,diff))});
+    ghosts.push({c:t.color,d:lv.map(L=>npcHP(base,L,t.m,diff))});
+  });
+  const yMax=niceMax(Math.max(...series.concat(ghosts).flatMap(s=>s.d)));
+  let s=axes(null,W,Hh,maxL,yMax,"level");
+  ghosts.forEach(g=>s+=`<path d="${linePath(g.d,W,Hh,maxL,yMax)}" fill="none" stroke="${g.c}" stroke-width="1.5" stroke-dasharray="4 4" opacity=".8"/>`);
+  series.forEach(g=>s+=`<path d="${linePath(g.d,W,Hh,maxL,yMax)}" fill="none" stroke="${g.c}" stroke-width="2.5"/>`);
+  const L=Number($("lvl").value), x=PAD.l+(W-PAD.l-PAD.r)*(L-1)/(maxL-1);
+  s+=`<line x1="${x}" x2="${x}" y1="${PAD.t}" y2="${Hh-PAD.b}" stroke="#555" stroke-dasharray="2 3"/><text x="${x+4}" y="${PAD.t+10}">lvl ${L}</text>`;
+  $("hpChart").innerHTML=s;
+  $("hpChart").setAttribute("aria-label",`Health by level. At level ${L}: player ${fmt(playerHP(work,L))}, average NPC ${fmt(npcHP(work,L,1,diff))}, boss NPC ${fmt(npcHP(work,L,1.7,diff))}.`);
+  const sm=(work.attributeSettings||{}).attributeStatModifiers||{};
+  $("hpNote").textContent=Object.keys(sm).length?"This world also raises resources from attributes (attributeStatModifiers). The player line leaves that out, so read it as the floor.":"";
+}
+function drawXP(){
+  const W=520,Hh=260,maxL=Math.max(30,Number($("lvl").value));
+  const lv=[...Array(maxL)].map((_,i)=>i+1);
+  const now=lv.map(L=>xpTo(work,L)), before=lv.map(L=>xpTo(base,L));
+  const yMax=niceMax(Math.max(...now,...before));
+  let s=axes(null,W,Hh,maxL,yMax,"level");
+  s+=`<path d="${linePath(before,W,Hh,maxL,yMax)}" fill="none" stroke="#999" stroke-width="1.5" stroke-dasharray="4 4" opacity=".9"/>`;
+  s+=`<path d="${linePath(now,W,Hh,maxL,yMax)}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
+  $("xpChart").innerHTML=s;
+  $("xpChart").setAttribute("aria-label",`XP curve. Level 10 needs ${fmt(xpTo(work,10))} total XP, level ${maxL} needs ${fmt(xpTo(work,maxL))}.`);
+}
+function drawRoll(){
+  const W=520,Hh=220, names=(work.attributeSettings&&work.attributeSettings.attributeNames)||DEFAULT_WORLD.attributeSettings.attributeNames;
+  const a=cur("startAttr"), b0=was("startAttr");
+  const vNow=rollBonus(work,a), vWas=rollBonus(base,b0);
+  const lim=Math.max(10,Math.ceil(Math.max(Math.abs(vNow),Math.abs(vWas))/5)*5);
+  const cx=W/2, half=(W-140)/2, rows=Math.min(names.length,8), rh=(Hh-30)/rows;
+  let s=`<line x1="${cx}" x2="${cx}" y1="4" y2="${Hh-22}" stroke="#555"/>`;
+  s+=`<text x="${cx-half}" y="${Hh-6}" text-anchor="middle">${-lim}</text><text x="${cx}" y="${Hh-6}" text-anchor="middle">0</text><text x="${cx+half}" y="${Hh-6}" text-anchor="middle">+${lim}</text>`;
+  names.slice(0,rows).forEach((n,i)=>{
+    const y=8+i*rh, bh=Math.min(16,rh-8);
+    const w1=Math.abs(vNow)/lim*half, w0=Math.abs(vWas)/lim*half;
+    const x1=vNow<0?cx-w1:cx, x0=vWas<0?cx-w0:cx;
+    s+=`<text x="8" y="${y+bh/2+4}">${esc(n)}</text>`;
+    s+=`<rect x="${x0}" y="${y-2}" width="${w0}" height="${bh+4}" fill="none" stroke="#777" stroke-dasharray="3 3" rx="3"/>`;
+    s+=`<rect x="${x1}" y="${y}" width="${w1}" height="${bh}" fill="${vNow<0?"var(--bad)":"var(--good)"}" rx="3"/>`;
+    s+=`<text x="${W-8}" y="${y+bh/2+4}" text-anchor="end" style="fill:var(--text)">${fmtSigned(vNow)}</text>`;
+  });
+  $("rollChart").innerHTML=s;
+  $("rollChart").setAttribute("aria-label",`A new character adds ${fmtSigned(vNow)} to every roll from each attribute (was ${fmtSigned(vWas)}).`);
+}
+function niceMax(v){if(v<=0)return 10;const p=Math.pow(10,Math.floor(Math.log10(v)));return Math.ceil(v/p*2)/2*p;}
+
+// ---------- Readouts ----------
+function tag(cls,txt){return `<span class="tag ${cls}">${txt}</span>`;}
+function drawReadouts(){
+  const L=Number($("lvl").value), diff=Number($("diff").value);
+  const rNow=npcHP(work,L,1,diff)/playerHP(work,L), rWas=npcHP(base,L,1,diff)/playerHP(base,L);
+  const bNow=rollBonus(work,cur("startAttr")), bWas=rollBonus(base,was("startAttr"));
+  const xNow=xpTo(work,L), xWas=xpTo(base,L);
+  const cmp=(n,w,up,down,eps)=>Math.abs(n-w)<=eps?tag("same","same as before"):tag(n>w?up:down,(n>w?up:down)+" than before");
+  $("readouts").innerHTML=`
+    <div class="ro"><div class="k">Average foe's health vs yours at level ${L}</div>
+      <div class="v">${rNow.toFixed(2)}×</div><div class="d">${cmp(rNow,rWas,"harder","easier",0.005)} <span class="empty">was ${rWas.toFixed(2)}×</span></div></div>
+    <div class="ro"><div class="k">A new character's attribute bonus on every roll</div>
+      <div class="v">${fmtSigned(bNow)}</div><div class="d">${cmp(-bNow,-bWas,"harder","easier",0.05)} <span class="empty">was ${fmtSigned(bWas)}</span></div></div>
+    <div class="ro"><div class="k">Total XP to reach level ${L}</div>
+      <div class="v">${fmt(xNow)}</div><div class="d">${cmp(xNow,xWas,"slower","faster",0.5)} <span class="empty">was ${fmt(xWas)}</span></div></div>`;
+}
+
+// ---------- Changes ----------
+function drawChanges(){
+  const items=FIELDS.filter(f=>cur(f.id)!==was(f.id)).map(f=>{
+    const a=was(f.id), b=cur(f.id);
+    return `<li><b>${f.label}</b> ${a} → ${b}<div><code>${f.path}</code></div><div class="why">${f.why(a,b)}</div></li>`;
+  });
+  $("changes").innerHTML=items.length?items.join(""):`<li class="empty">Nothing changed yet. Pick a template or move a slider.</li>`;
+}
+
+// ---------- Content ----------
+function drawContent(){
+  let sum=0;
+  $("bars").innerHTML=CONTENT.map(c=>{
+    const n=c.keys.reduce((t,k)=>t+Object.keys(work[k]||{}).length,0);
+    const f=Math.min(1,n/c.target); sum+=f;
+    const col=f>=1?"var(--good)":f>=.5?"var(--avg)":"var(--bad)";
+    return `<div class="bar"><span>${c.name}</span><div class="track"><div class="fill" style="width:${(f*100).toFixed(0)}%;background:${col}"></div></div><span class="num">${n} / ${c.target}</span></div>`;
+  }).join("");
+  const p=Math.round(sum/CONTENT.length*100);
+  $("overallPct").textContent=p+"%";
+  const missing=CONTENT.filter(c=>c.keys.reduce((t,k)=>t+Object.keys(work[k]||{}).length,0)===0).map(c=>c.name);
+  $("overallTxt").textContent=missing.length?"Not started: "+missing.join(", "):"Every area has a start.";
+}
+
+// ---------- Render ----------
+function render(){
+  FIELDS.forEach(f=>{
+    const v=cur(f.id), b=was(f.id);
+    const el=$("f_"+f.id);
+    el.min=Math.min(f.min,v); el.max=Math.max(f.max,v);
+    el.step=Number.isInteger(Math.round((v-f.min)/f.step*1e6)/1e6)?f.step:"any";
+    if(Number(el.value)!==v) el.value=v;
+    $("o_"+f.id).textContent=v;
+    const be=$("b_"+f.id); be.textContent=v===b?`loaded: ${b}`:`loaded: ${b} (${pct(b,v)})`; be.classList.toggle("changed",v!==b);
+  });
+  [...$("templates").children].forEach((b,i)=>{b.classList.toggle("active",activeTpl===i);b.setAttribute("aria-pressed",String(activeTpl===i));});
+  drawReadouts(); drawHP(); drawXP(); drawRoll(); drawChanges(); drawContent();
+}
+
+// ---------- Load / export ----------
+function loadWorld(obj,name){
+  if(!obj||typeof obj!=="object"||Array.isArray(obj)) throw new Error("Not a world object");
+  base=clone(obj); work=clone(obj); fileName=name; activeTpl=null;
+  $("src").textContent=`${name}${obj.heroesVersion?` (V${obj.heroesVersion})`:""}`;
+  render();
+}
+$("file").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  f.text().then(t=>loadWorld(JSON.parse(t),f.name)).catch(err=>alert("Could not read that file: "+err.message));
+});
+document.addEventListener("dragover",e=>e.preventDefault());
+document.addEventListener("drop",e=>{
+  e.preventDefault(); const f=e.dataTransfer.files[0]; if(!f) return;
+  f.text().then(t=>loadWorld(JSON.parse(t),f.name)).catch(err=>alert("Could not read that file: "+err.message));
+});
+$("reset").onclick=()=>{work=clone(base);activeTpl=null;render();};
+$("export").onclick=()=>{
+  const blob=new Blob([JSON.stringify(work,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=(fileName||"world.json").replace(/\.json$/,"")+".tuned.json"; a.click(); URL.revokeObjectURL(a.href);
+};
+$("diff").onchange=render; $("lvl").onchange=render;
+
+buildLevels(); buildFields(); buildTemplates(); render();
+window.__tuner={loadWorld,FIELDS,cur,was,TEMPLATES,work:()=>work};
+</script>
+</body>
+</html>
