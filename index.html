@@ -122,7 +122,7 @@ svg text{fill:var(--muted);font-size:14px}
     <section class="card">
       <h2>World content</h2>
       <div class="row" style="justify-content:space-between;align-items:flex-start">
-        <p class="sub" style="max-width:640px">Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
+        <p class="sub" style="max-width:640px">The full-world bar is <b>The Asagiri Isles</b>, a finished published world, so 100 means Asagiri-sized. Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
         <div class="templates" id="goal" style="grid-template-columns:1fr 1fr;min-width:340px"></div>
       </div>
       <div class="overall"><span class="big" id="overallPct">0%</span><span class="empty" id="overallTxt"></span></div>
@@ -270,20 +270,20 @@ function refs(w){
   return {quest:(k,r)=>hit(quests,k,r), event:(k,r)=>hit(events,k,r)};
 }
 const CONTENT = [
-  {name:"Lore", keys:["worldLore"], stages:[5,40], ready:has("text"), need:"text"},
-  {name:"Places", keys:["regions","locations"], stages:[6,60], ready:has("basicInfo"), need:"a basic description"},
-  {name:"Factions", keys:["factions"], stages:[2,8], ready:has("basicInfo"), need:"a basic description"},
-  {name:"NPCs", keys:["npcs"], stages:[6,60], ready:has("basicInfo","personality","visualDescription","currentLocation"), need:"description, personality, looks and a location"},
-  {name:"NPC types", keys:["npcTypes"], stages:[2,10], ready:has("description"), need:"a description"},
-  {name:"Story starts", keys:["storyStarts"], stages:[1,6], ready:r=>filled(r.storyStart)&&filled(r.locations), need:"opening text and a location"},
-  {name:"Quests", keys:["quests"], stages:[3,30], ready:(r,k,R)=>R.quest(k,r)&&filled(r.questStatement||r.mainObjective), need:"a way to reach the player (a start's quests or a trigger)"},
-  {name:"Narrative events", keys:["narrativeEvents"], stages:[1,10], ready:(r,k,R)=>R.event(k,r)&&filled(r.beats), need:"beats and something that starts them"},
-  {name:"Skills / abilities / traits", keys:["skills","abilities","traits"], stages:[10,80], ready:has("description"), need:"a description"},
-  {name:"Items", keys:["itemTypes"], stages:[8,60], ready:has("description"), need:"a description"},
+  {name:"Lore", keys:["worldLore"], stages:[5,279], ready:has("text"), need:"text"},
+  {name:"Places", keys:["regions","locations"], stages:[6,737], ready:has("basicInfo"), need:"a basic description"},
+  {name:"Factions", keys:["factions"], stages:[2,36], ready:has("basicInfo"), need:"a basic description"},
+  {name:"NPCs", keys:["npcs"], stages:[6,595], ready:r=>has("basicInfo","personality","currentLocation")(r)&&(filled(r.visualDescription)||filled(r.portraitUrl)), need:"description, personality, looks (a portrait or a visual description) and a location"},
+  {name:"NPC types", keys:["npcTypes"], stages:[2,92], ready:has("description"), need:"a description"},
+  {name:"Story starts", keys:["storyStarts"], stages:[1,65], skip:r=>/write your own/i.test(r.name||""), ready:r=>filled(r.storyStart)&&filled(r.locations), need:"opening text and a location"},
+  {name:"Quests", keys:["quests"], stages:[3,582], ready:(r,k,R)=>R.quest(k,r)&&filled(r.questStatement||r.mainObjective), need:"a way to reach the player (a start's quests or a trigger)"},
+  {name:"Narrative events", keys:["narrativeEvents"], stages:[1,49], ready:(r,k,R)=>R.event(k,r)&&filled(r.beats), need:"beats and something that starts them"},
+  {name:"Skills / abilities / traits", keys:["skills","abilities","traits"], stages:[10,1652], ready:has("description"), need:"a description"},
+  {name:"Items", keys:["itemTypes"], stages:[8,553], ready:has("description"), need:"a description"},
 ];
 const PIE=["#4a4a7a","#7a5a32","#4f6e3a","#7a3a4c","#2f6e66","#8a6a2a","#6e6e3a","#3a5e8a","#8a4a6e","#5e7a5a"];
 const SETTING=["Lore","Places","Factions"];
-const GOALS=[{name:"Starter world",desc:"Enough to play a first session."},{name:"Full world",desc:"A finished, detailed world ready to publish."}];
+const GOALS=[{name:"Starter world",desc:"Enough to play a first session."},{name:"Full world",desc:"Measured against The Asagiri Isles: 595 NPCs, 582 quests, 737 places."}];
 let goal=0;
 
 // ---------- State ----------
@@ -442,11 +442,13 @@ function drawChanges(){
 }
 
 // ---------- Content ----------
+function areaRecords(w,c){return c.keys.flatMap(k=>Object.entries(w[k]||{})).filter(([k,r])=>!(c.skip&&r&&c.skip(r)));}
+function readyCounts(w){const R=refs(w);return Object.fromEntries(CONTENT.map(c=>[c.name,areaRecords(w,c).filter(([k,r])=>r&&typeof r==="object"&&c.ready(r,k,R)).length]));}
 function drawContent(){
   const R=refs(work); const gaps=[], scores=[];
   [...$("goal").children].forEach((b,i)=>{b.classList.toggle("active",goal===i);b.setAttribute("aria-pressed",String(goal===i));});
   $("bars").innerHTML=CONTENT.map(c=>{
-    const recs=c.keys.flatMap(k=>Object.entries(work[k]||{}));
+    const recs=areaRecords(work,c);
     const n=recs.length, ok=recs.filter(([k,r])=>r&&typeof r==="object"&&c.ready(r,k,R)).length;
     const target=c.stages[goal], amount=Math.min(1,ok/target), rd=n?ok/n:0;
     scores.push({name:c.name,score:Math.round(amount*rd*100)});
@@ -501,8 +503,18 @@ function render(){
 }
 
 // ---------- Load / export ----------
+function unwrap(o){
+  const isWorld=x=>x&&typeof x==="object"&&!Array.isArray(x)&&("heroesVersion" in x||"npcs" in x||"storyStarts" in x);
+  // Studio exports are the world itself; Creator API downloads wrap it ({world: {initialGameState: ...}}).
+  let level=[o];
+  for(let d=0;d<4&&level.length;d++){
+    const hit=level.find(isWorld); if(hit) return hit;
+    level=level.flatMap(x=>x&&typeof x==="object"&&!Array.isArray(x)?Object.values(x).filter(v=>v&&typeof v==="object"&&!Array.isArray(v)):[]);
+  }
+  throw new Error("No Voyage world found in this file (looked for npcs / storyStarts / heroesVersion)");
+}
 function loadWorld(obj,name){
-  if(!obj||typeof obj!=="object"||Array.isArray(obj)) throw new Error("Not a world object");
+  obj=unwrap(obj);
   base=clone(obj); work=clone(obj); fileName=name; activeTpl=null;
   $("src").textContent=`${name}${obj.heroesVersion?` (V${obj.heroesVersion})`:""}`;
   render();
@@ -527,7 +539,7 @@ $("diff").onchange=render; $("lvl").onchange=render;
 buildLevels(); buildFields(); buildTemplates();
 GOALS.forEach((g,i)=>{const b=document.createElement("button");b.className="tpl";b.innerHTML=`<b>${g.name}</b><span>${g.desc}</span>`;b.onclick=()=>{goal=i;drawContent();};$("goal").appendChild(b);});
 render();
-window.__tuner={loadWorld,FIELDS,cur,was,TEMPLATES,work:()=>work};
+window.__tuner={loadWorld,readyCounts,FIELDS,cur,was,TEMPLATES,work:()=>work};
 </script>
 </body>
 </html>
