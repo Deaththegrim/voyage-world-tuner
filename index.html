@@ -81,7 +81,7 @@ svg text{fill:var(--muted);font-size:14px}
 </head>
 <body>
 <header>
-  <h1>World Tuner</h1><span class="src" title="Page version">v2026-11-11i</span>
+  <h1>World Tuner</h1><span class="src" title="Page version">v2026-11-11j</span>
   <span class="src" id="src">Voyage default settings (no world loaded)</span>
   <span class="spacer"></span>
   <label class="filebtn">Load world.json<input type="file" id="file" accept=".json,application/json"></label>
@@ -110,7 +110,7 @@ svg text{fill:var(--muted);font-size:14px}
         <div class="row">
           <label for="diff" class="empty">Player difficulty</label>
           <select id="diff">
-            <option value="0.5">Very easy</option><option value="0.75">Easy</option><option value="1" selected>Normal</option><option value="1.25">Hard</option><option value="1.5">Very hard</option>
+            <option value="0.5">Very easy</option><option value="0.75">Easy</option><option value="1" selected>Medium</option><option value="1.25">Hard</option><option value="1.5">Very hard</option>
           </select>
           <label for="lvl" class="empty">Compare at level</label>
           <select id="lvl"></select>
@@ -350,7 +350,13 @@ function fmtSigned(n){n=Math.round(n*10)/10;return (n>0?"+":n<0?"−":"±")+Math
 function pct(a,b){if(!a)return "new";const p=Math.round((b-a)/a*100);return (p>0?"+":"")+p+"%";}
 
 // ---------- Engine formulas ----------
-const playerHP = (w,L) => val(w,"hp0") + val(w,"hpGain")*(L-1);
+// attributeSettings doc: attributeStatModifiers maps an attribute to [{variable, amount}] ("every point of the attribute adds amount");
+// the 2026-11-10 patch made it a list, older worlds hold one object. A new character's attributes sit at startingAttributeValue.
+function attrHealth(w){
+  const as=w.attributeSettings||{}, hk=healthKey(w), start=val(w,"startAttr");
+  return Object.values(as.attributeStatModifiers||{}).reduce((t,m)=>t+(Array.isArray(m)?m:[m]).filter(x=>x&&x.variable===hk).reduce((u,x)=>u+num(x.amount,0)*start,0),0);
+}
+const playerHP = (w,L) => val(w,"hp0") + val(w,"hpGain")*(L-1) + attrHealth(w);
 const npcHP = (w,L,tier,diff) => (val(w,"npcHpLvl")*L + val(w,"npcMin")) * tier * diff;
 function xpTo(w,L){ // total XP from level 1 to level L
   const a=val(w,"xp0"), s=val(w,"xpStep"); let t=0;
@@ -428,8 +434,8 @@ function drawHP(){
   s+=`<line x1="${x}" x2="${x}" y1="${PAD.t}" y2="${Hh-PAD.b}" stroke="#555" stroke-dasharray="2 3"/><text x="${x+4}" y="${PAD.t+10}">lvl ${L}</text>`;
   $("hpChart").innerHTML=s;
   $("hpChart").setAttribute("aria-label",`Health by level. At level ${L}: player ${fmt(playerHP(work,L))}, average NPC ${fmt(npcHP(work,L,1,diff))}, boss NPC ${fmt(npcHP(work,L,1.7,diff))}.`);
-  const sm=(work.attributeSettings||{}).attributeStatModifiers||{};
-  $("hpNote").textContent=Object.keys(sm).length?"This world also raises resources from attributes (attributeStatModifiers). The player line leaves that out, so read it as the floor.":"";
+  const ah=attrHealth(work);
+  $("hpNote").textContent=ah?`Includes +${fmt(ah)} health from attributes (attributeStatModifiers at the starting value ${val(work,"startAttr")}). Creator picks and items that raise attributes or health add more.`:"";
 }
 function drawXP(){
   const W=520,Hh=260,maxL=Math.max(30,Number($("lvl").value));
@@ -577,6 +583,10 @@ function unwrap(o){
 function loadWorld(obj,name){
   obj=unwrap(obj);
   base=clone(obj); work=clone(obj); fileName=name; activeTpl=null; WORLD_TEXT=Math.max(1,vsize(obj));
+  const DIFF={"very easy":0.5,"easy":0.75,"medium":1,"hard":1.25,"very hard":1.5};
+  const modes=Object.entries(obj.gameModes||{}).filter(([,m])=>m&&DIFF[m.difficulty]!=null);
+  $("diff").innerHTML=Object.entries(DIFF).map(([n,v])=>`<option value="${v}"${v===1?" selected":""}>${n[0].toUpperCase()+n.slice(1)}</option>`).join("")
+    +(modes.length?`<optgroup label="This world's game modes">`+modes.map(([k,m])=>`<option value="${DIFF[m.difficulty]}">${esc(m.name||k)} (${m.difficulty})</option>`).join("")+`</optgroup>`:"");
   $("src").textContent=`${name}${obj.heroesVersion?` (V${obj.heroesVersion})`:""}`;
   render();
 }
