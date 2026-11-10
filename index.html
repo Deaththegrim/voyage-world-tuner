@@ -81,7 +81,7 @@ svg text{fill:var(--muted);font-size:14px}
 </head>
 <body>
 <header>
-  <h1>World Tuner</h1><span class="src" title="Page version">v2026-11-11d</span>
+  <h1>World Tuner</h1><span class="src" title="Page version">v2026-11-11e</span>
   <span class="src" id="src">Voyage default settings (no world loaded)</span>
   <span class="spacer"></span>
   <label class="filebtn">Load world.json<input type="file" id="file" accept=".json,application/json"></label>
@@ -122,7 +122,7 @@ svg text{fill:var(--muted);font-size:14px}
     <section class="card">
       <h2>World content</h2>
       <div class="row" style="justify-content:space-between;align-items:flex-start">
-        <p class="sub" style="max-width:640px">The full-world bar is <b>The Asagiri Isles</b>, a finished published world, so 100 means Asagiri-sized. Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
+        <p class="sub" style="max-width:640px">The full-world bar is <b>Voyage's own limit</b> for each section (how much a world is allowed to hold), so 100 means that area is filled to the cap. Quests and narrative events have no published limit, so they use The Asagiri Isles' counts. Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
         <div class="templates" id="goal" style="grid-template-columns:1fr 1fr;min-width:340px"></div>
       </div>
       <div class="overall"><span class="big" id="overallPct">0%</span><span class="empty" id="overallTxt"></span></div>
@@ -281,9 +281,31 @@ const CONTENT = [
   {name:"Skills / abilities / traits", keys:["skills","abilities","traits"], stages:[10,1652], ready:has("description"), need:"a description"},
   {name:"Items", keys:["itemTypes"], stages:[8,553], ready:has("description"), need:"a description"},
 ];
+// Full-world bar: Voyage's published publish-stage limits (docs/unofficial-limits-v37.json). size = compact JSON with empty values dropped (Voyage's own measure).
+const CAPS={
+  "Lore":[{k:"worldLore",m:"size",cap:1000000}],
+  "Places":[{k:"regions",m:"size",cap:500000},{k:"locations",m:"size",cap:2000000}],
+  "Factions":[{k:"factions",m:"size",cap:100000}],
+  "NPCs":[{k:"npcs",m:"size",cap:2000000}],
+  "NPC types":[{k:"npcTypes",m:"size",cap:500000}],
+  "Story starts":[{k:"storyStarts",m:"count",cap:101}],
+  "Quests":[{k:"quests",m:"count",cap:582,asagiri:true}],
+  "Narrative events":[{k:"narrativeEvents",m:"count",cap:49,asagiri:true}],
+  "Skills / abilities / traits":[{k:"skills",m:"count",cap:250},{k:"abilities",m:"count",cap:1500},{k:"traits",m:"size",cap:1750000}],
+  "Items":[{k:"itemTypes",m:"size",cap:350000}],
+};
+const vsize=r=>JSON.stringify(r,(k,v)=>v===""||v===null||(Array.isArray(v)&&!v.length)?undefined:v).length;
+function capShare(w,c,readySet){
+  const parts=CAPS[c.name].map(p=>{
+    const recs=Object.entries(w[p.k]||{}).filter(([,r])=>readySet.has(r));
+    const used=p.m==="count"?recs.length:recs.reduce((t,[,r])=>t+vsize(r),0);
+    return {used,cap:p.cap,m:p.m,asagiri:p.asagiri,k:p.k};
+  });
+  return {f:Math.min(1,parts.reduce((t,x)=>t+Math.min(1,x.used/x.cap),0)/parts.length),parts};
+}
 const PIE=["#4a4a7a","#7a5a32","#4f6e3a","#7a3a4c","#2f6e66","#8a6a2a","#6e6e3a","#3a5e8a","#8a4a6e","#5e7a5a"];
 const SETTING=["Lore","Places","Factions"];
-const GOALS=[{name:"Starter world",desc:"Enough to play a first session."},{name:"Full world",desc:"Measured against The Asagiri Isles: 595 NPCs, 582 quests, 737 places."}];
+const GOALS=[{name:"Starter world",desc:"Enough to play a first session."},{name:"Full world",desc:"Measured against Voyage's own size limits for each section."}];
 let goal=0;
 
 // ---------- State ----------
@@ -449,13 +471,17 @@ function drawContent(){
   [...$("goal").children].forEach((b,i)=>{b.classList.toggle("active",goal===i);b.setAttribute("aria-pressed",String(goal===i));});
   $("bars").innerHTML=CONTENT.map(c=>{
     const recs=areaRecords(work,c);
-    const n=recs.length, ok=recs.filter(([k,r])=>r&&typeof r==="object"&&c.ready(r,k,R)).length;
-    const target=c.stages[goal], amount=Math.min(1,ok/target), rd=n?ok/n:0;
-    scores.push({name:c.name,score:Math.round(amount*rd*100)});
+    const readyRecs=recs.filter(([k,r])=>r&&typeof r==="object"&&c.ready(r,k,R));
+    const n=recs.length, ok=readyRecs.length, rd=n?ok/n:0;
+    const readySet=new Set(readyRecs.map(([,r])=>r));
+    const full=goal===1?capShare(work,c,readySet):null;
+    const target=c.stages[0], amount=full?full.f:Math.min(1,ok/target);
+    scores.push({name:c.name,score:Math.floor(amount*rd*100)});
     if(n&&ok<n) gaps.push(`${c.name}: ${n-ok} not ready yet (needs ${c.need})`);
-    if(ok<target) gaps.push(`${c.name}: ${target-ok} more ready ${target-ok===1?"entry":"entries"} for a ${GOALS[goal].name.toLowerCase()}`);
+    if(!full&&ok<target) gaps.push(`${c.name}: ${target-ok} more ready ${target-ok===1?"entry":"entries"} for a starter world`);
+    if(full&&full.f<1) gaps.push(`${c.name}: ${Math.floor(full.f*rd*100)}% of the full-world bar (`+full.parts.map(x=>`${x.k} ${fmt(x.used)} of ${fmt(x.cap)} ${x.m==="count"?"entries":"chars"}${x.asagiri?", Asagiri's count: Voyage sets no limit":""}`).join("; ")+`)`);
     const sc=amount*rd, col=sc>=.95?"var(--good)":sc>=.5?"var(--avg)":"var(--bad)";
-    return `<div class="bar"><span>${c.name}</span><div class="track"><div class="fill" style="width:${(sc*100).toFixed(0)}%;background:${col}"></div></div><span class="num">${ok} / ${target}${n?` · ${Math.floor(rd*100)}% ready`:""}</span></div>`;
+    return `<div class="bar"><span>${c.name}</span><div class="track"><div class="fill" style="width:${(sc*100).toFixed(0)}%;background:${col}"></div></div><span class="num">${full?`${Math.floor(full.f*100)}% of limit`:`${ok} / ${target}`}${n?` · ${Math.floor(rd*100)}% ready`:""}</span></div>`;
   }).join("");
   $("overallPct").textContent=Math.floor(scores.reduce((t,x)=>t+x.score,0)/scores.length)+"%";
   drawPie(scores);
