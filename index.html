@@ -81,7 +81,7 @@ svg text{fill:var(--muted);font-size:14px}
 </head>
 <body>
 <header>
-  <h1>World Tuner</h1><span class="src" title="Page version">v2026-11-11f</span>
+  <h1>World Tuner</h1><span class="src" title="Page version">v2026-11-11i</span>
   <span class="src" id="src">Voyage default settings (no world loaded)</span>
   <span class="spacer"></span>
   <label class="filebtn">Load world.json<input type="file" id="file" accept=".json,application/json"></label>
@@ -122,7 +122,7 @@ svg text{fill:var(--muted);font-size:14px}
     <section class="card">
       <h2>World content</h2>
       <div class="row" style="justify-content:space-between;align-items:flex-start">
-        <p class="sub" style="max-width:640px">The full-world bar is <b>Voyage's own limit</b> for each section (how much a world is allowed to hold), so 100 means that area is filled to the cap. Quests and narrative events have no limit of their own (Voyage accepted 6 MB of each), so their text is measured against the 12.5 MB whole-world limit. Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
+        <p class="sub" style="max-width:640px">The full-world bar is <b>Voyage's own limit</b> for each section (how much a world is allowed to hold), so 100 means that area is filled to the cap. Quests, arcs, narrative events and world voices have no limit of their own (Voyage accepted 6 MB of quests or events), so they score against an average area's share of this world's text (the world's total ÷ 12 areas). Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
         <div class="templates" id="goal" style="grid-template-columns:1fr 1fr;min-width:340px"></div>
       </div>
       <div class="overall"><span class="big" id="overallPct">0%</span><span class="empty" id="overallTxt"></span></div>
@@ -133,6 +133,7 @@ svg text{fill:var(--muted);font-size:14px}
         <div class="layers" id="layers"></div>
       </div>
       <div class="bars" id="bars"></div>
+      <p class="note" id="seedsTxt"></p>
       <h2 style="margin-top:14px">What's missing</h2>
       <ul class="changes" id="gaps"></ul>
     </section>
@@ -254,10 +255,23 @@ const TEMPLATES = [
 // ---------- Content readiness ----------
 // count: how much there is (stage label only). ready: share of records that are filled in AND wired so play can reach them.
 const filled = v => Array.isArray(v) ? v.length>0 : typeof v==="string" ? v.trim().length>0 : v!=null;
+// Studio exports since 2026-11 keep quests / questTriggers / arcs / narrativeEvents under parties[""] and call triggers triggerDefinitions.
+// Voyage blank-world seed keys (docs/blank-world-v37.json), so a world's own seeds can be told apart.
+const DEFAULT_SEEDS={"authorSeeds": ["Ada Palmer", "Adrian Tchaikovsky", "Becky Chambers", "Brandon Sanderson", "China Miéville", "George R.R. Martin", "Guy Gavriel Kay", "Joe Abercrombie", "Katherine Addison", "Leigh Bardugo", "Lois McMaster Bujold", "Mark Lawrence", "N.K. Jemisin", "Richard K. Morgan", "Robin Hobb", "Scott Lynch", "Steven Erikson", "Terry Pratchett", "Ursula K. Le Guin"], "characterArchetypes": ["Artist", "Avenger", "Beast", "Believer", "Boss", "Comfort-Seeker", "Coward", "Crooked Leader", "Expert", "Fanatic", "Healer", "Innocent", "Joker", "Networker", "Protector", "Slacker", "Survivor", "Thrill-Seeker", "Troublemaker", "Wanderer", "Watcher", "Worker"], "regionArchetypes": ["Borderlands", "Contested Borders", "Disputed", "Divided Realm", "Exploited Land", "Fading Glory", "Forbidden Territory", "Forgotten Realm", "Frontier", "Healing Scars", "Heartland", "Hidden Network", "Meeting", "Rising Center", "Sacred Territory", "Sanctuary", "Seasonal Grounds", "Seat of Power", "Secluded Haven", "Shaped Domain", "Threshold", "Veiled Wonder", "Wanderer Paths"], "locationArchetypes": ["Crossroads", "Exchange Hub", "Gathering Thread", "Knowledge Cache", "Living History", "Power Struggle", "Quiet Craft", "Sanctuary", "Time Anchor", "True Believers", "Web of Corruption"], "encounterElements": ["Aid & Rescue", "Combat & Danger", "Commercial", "Criminal & Hidden", "Displaced", "Historical & Ancient", "Hostile", "Inhabited Places", "Merchants & Traders", "Military & Defense", "Military & Law", "Mystery & Investigation", "Natural & Environmental", "Natural Features", "Outlaws", "Recent Activity", "Religious & Mystical", "Religious & Mystical Characters", "Social & Diplomatic", "Specialists", "Travelers"]};
+const PARTY_SECTIONS=["quests","questTriggers","arcs","narrativeEvents","entities"];
+function sec(w,k){
+  if(!w) return {};
+  if(k==="triggers") return w.triggers||w.triggerDefinitions||{};
+  if(w[k]) return w[k];
+  if(PARTY_SECTIONS.includes(k)&&w.parties&&typeof w.parties==="object"){
+    const out={}; Object.values(w.parties).forEach(pt=>{if(pt&&pt[k]) Object.assign(out,pt[k]);}); return out;
+  }
+  return {};
+}
 const has = (...ks) => r => ks.every(k=>filled(r[k]));
 function refs(w){
   const quests=new Set(), events=new Set(); let scripts="";
-  Object.values(w.storyStarts||{}).forEach(st=>(st.startingQuests||[]).forEach(q=>quests.add(q)));
+  Object.values(sec(w,"storyStarts")).forEach(st=>(st.startingQuests||[]).forEach(q=>quests.add(q)));
   (function walk(o){
     if(Array.isArray(o)){o.forEach(walk);return;}
     if(!o||typeof o!=="object")return;
@@ -265,46 +279,58 @@ function refs(w){
     if(o.type==="narrative-event-start"&&o.eventId) events.add(o.eventId);
     if(typeof o.script==="string") scripts+="\n"+o.script;
     Object.values(o).forEach(walk);
-  })([w.triggers,w.questTriggers,w.quests,w.narrativeEvents,w.storyStarts]);
-  const hit=(set,k,r)=>set.has(k)||(r&&r.name&&set.has(r.name))||scripts.includes(k);
+  })([sec(w,"triggers"),sec(w,"questTriggers"),sec(w,"quests"),sec(w,"narrativeEvents"),sec(w,"storyStarts")]);
+  const hit=(set,k,r)=>set.has(k)||(r&&r.name&&set.has(r.name))||(r&&r.title&&set.has(r.title))||scripts.includes(k);
   return {quest:(k,r)=>hit(quests,k,r), event:(k,r)=>hit(events,k,r)};
 }
 const CONTENT = [
-  {name:"Lore", keys:["worldLore"], stages:[5,279], ready:has("text"), need:"text"},
-  {name:"Places", keys:["regions","locations"], stages:[6,737], ready:has("basicInfo"), need:"a basic description"},
-  {name:"Factions", keys:["factions"], stages:[2,36], ready:has("basicInfo"), need:"a basic description"},
-  {name:"NPCs", keys:["npcs"], stages:[6,595], ready:r=>has("basicInfo","personality","currentLocation")(r)&&(filled(r.visualDescription)||filled(r.portraitUrl)), need:"description, personality, looks (a portrait or a visual description) and a location"},
-  {name:"NPC types", keys:["npcTypes"], stages:[2,92], ready:has("description"), need:"a description"},
-  {name:"Story starts", keys:["storyStarts"], stages:[1,65], skip:r=>/write your own/i.test(r.name||""), ready:r=>filled(r.storyStart)&&filled(r.locations), need:"opening text and a location"},
-  {name:"Quests", keys:["quests"], stages:[3,582], ready:(r,k,R)=>R.quest(k,r)&&filled(r.questStatement||r.mainObjective), need:"a way to reach the player (a start's quests or a trigger)"},
-  {name:"Narrative events", keys:["narrativeEvents"], stages:[1,49], ready:(r,k,R)=>R.event(k,r)&&filled(r.beats), need:"beats and something that starts them"},
-  {name:"Skills / abilities / traits", keys:["skills","abilities","traits"], stages:[10,1652], ready:has("description"), need:"a description"},
-  {name:"Items", keys:["itemTypes"], stages:[8,553], ready:has("description"), need:"a description"},
+  {name:"Lore", keys:["worldLore"], stages:[5,279], checks:[["text",r=>filled(r.text)]]},
+  {name:"Places", keys:["realms","regions","locations"], stages:[6,737], checks:[["basic description",r=>filled(r.basicInfo)]]},
+  {name:"Factions", keys:["factions"], stages:[2,36], checks:[["basic description",r=>filled(r.basicInfo)]]},
+  {name:"NPCs", keys:["npcs"], stages:[6,595], checks:[["basic description",r=>filled(r.basicInfo)],["personality",r=>filled(r.personality)],["location",r=>filled(r.currentLocation)],["looks (portrait or visual description)",r=>filled(r.visualDescription)||filled(r.portraitUrl)]]},
+  {name:"NPC types", keys:["npcTypes"], stages:[2,92], checks:[["description",r=>filled(r.description)]]},
+  {name:"Story starts", keys:["storyStarts"], stages:[1,65], skip:r=>/write your own/i.test(r.name||""), checks:[["opening text",r=>filled(r.storyStart)],["location",r=>filled(r.locations)]]},
+  {name:"Quests & arcs", keys:["quests","arcs"], stages:[3,582], checks:[["a way to reach the player (a start's quests or a trigger)",(r,k,R)=>R.quest(k,r),["quests"]],["quest statement or objective",r=>filled(r.questStatement||r.mainObjective),["quests"]],["arc premise",r=>filled(r.surfacePremise||r.theme),["arcs"]]]},
+  {name:"Narrative events", keys:["narrativeEvents"], stages:[1,49], checks:[["something that starts it",(r,k,R)=>R.event(k,r)],["beats",r=>filled(r.beats)]]},
+  {name:"Skills / abilities / traits", keys:["skills","abilities","traits"], stages:[10,1652], checks:[["description",r=>filled(r.description)]]},
+  {name:"Creator", keys:["traitCategories","premadeCharacters"], stages:[2,0], checks:[["description",r=>filled(r.description)],["traits",r=>filled(r.traits)]]},
+  {name:"Modes & voices", keys:["gameModes","worldVoices"], stages:[1,0], checks:[["instructions or description",r=>filled(r.instructions)||filled(r.description),["gameModes"]],["voice tag",r=>filled(r.voiceTag),["worldVoices"]]]},
+  {name:"Items", keys:["itemTypes"], stages:[8,553], checks:[["description",r=>filled(r.description)]]},
 ];
 // Full-world bar: Voyage's published publish-stage limits (docs/unofficial-limits-v37.json). size = compact JSON with empty values dropped (Voyage's own measure).
 const CAPS={
   "Lore":[{k:"worldLore",m:"size",cap:1000000}],
-  "Places":[{k:"regions",m:"size",cap:500000},{k:"locations",m:"size",cap:2000000}],
+  "Places":[{k:"realms",m:"size",cap:100000,optional:true},{k:"regions",m:"size",cap:500000},{k:"locations",m:"size",cap:2000000}],
   "Factions":[{k:"factions",m:"size",cap:100000}],
   "NPCs":[{k:"npcs",m:"size",cap:2000000}],
   "NPC types":[{k:"npcTypes",m:"size",cap:500000}],
   "Story starts":[{k:"storyStarts",m:"count",cap:101}],
-  "Quests":[{k:"quests",m:"size",cap:12500000,whole:true}],
-  "Narrative events":[{k:"narrativeEvents",m:"size",cap:12500000,whole:true}],
+  "Quests & arcs":[{k:"quests",m:"size",cap:0,share:true},{k:"arcs",m:"size",cap:0,share:true,optional:true}],
+  "Creator":[{k:"traitCategories",m:"size",cap:100000},{k:"premadeCharacters",m:"count",cap:100}],
+  "Modes & voices":[{k:"gameModes",m:"size",cap:100000},{k:"worldVoices",m:"size",cap:0,share:true,optional:true}],
+  "Narrative events":[{k:"narrativeEvents",m:"size",cap:0,share:true}],
   "Skills / abilities / traits":[{k:"skills",m:"count",cap:250},{k:"abilities",m:"count",cap:1500},{k:"traits",m:"size",cap:1750000}],
   "Items":[{k:"itemTypes",m:"size",cap:350000}],
 };
 const vsize=r=>JSON.stringify(r,(k,v)=>v===""||v===null||(Array.isArray(v)&&!v.length)?undefined:v).length;
 function capShare(w,c,readySet){
   const parts=CAPS[c.name].map(p=>{
-    const recs=Object.entries(w[p.k]||{}).filter(([,r])=>readySet.has(r));
+    const recs=Object.entries(sec(w,p.k)).filter(([,r])=>readySet.has(r));
     const used=p.m==="count"?recs.length:recs.reduce((t,[,r])=>t+vsize(r),0);
-    return {used,cap:p.cap,m:p.m,whole:p.whole,k:p.k};
-  });
+    const cap=p.share?Math.max(1,Math.round(WORLD_TEXT/CONTENT.length)):p.cap;   // no section limit: an average area's share of this world's text
+    return {used,cap,m:p.m,share:p.share,k:p.k,optional:p.optional,any:Object.keys(sec(w,p.k)).length};
+  }).filter(x=>!(x.optional&&!x.any));   // a section the world does not use (realms, arcs, voices) is not held against it
+  if(!parts.length) return {f:0,parts};
+  const shared=parts.filter(x=>x.share), own=parts.filter(x=>!x.share);
+  const scored=shared.length?[...own,{used:shared.reduce((t,x)=>t+x.used,0),cap:shared[0].cap}]:own;   // no-limit sections of one area pool their text
+  return {f:Math.min(1,scored.reduce((t,x)=>t+Math.min(1,x.used/x.cap),0)/scored.length),parts};
   return {f:Math.min(1,parts.reduce((t,x)=>t+Math.min(1,x.used/x.cap),0)/parts.length),parts};
 }
-const PIE=["#4a4a7a","#7a5a32","#4f6e3a","#7a3a4c","#2f6e66","#8a6a2a","#6e6e3a","#3a5e8a","#8a4a6e","#5e7a5a"];
+const PIE=["#6a4a8a","#8a7a3a","#4a4a7a","#7a5a32","#4f6e3a","#7a3a4c","#2f6e66","#8a6a2a","#6e6e3a","#3a5e8a","#8a4a6e","#5e7a5a"];
 const SETTING=["Lore","Places","Factions"];
+const applies=(chk,sk)=>!chk[2]||chk[2].includes(sk);
+CONTENT.forEach(c=>{c.ready=(r,k,R,sk)=>r&&typeof r==="object"&&c.checks.every(chk=>!applies(chk,sk)||chk[1](r,k,R));});
+function missingBy(c,recs,R){const m={};recs.forEach(([k,r,sk])=>c.checks.forEach(chk=>{if(applies(chk,sk)&&!(r&&typeof r==="object"&&chk[1](r,k,R)))m[chk[0]]=(m[chk[0]]||0)+1;}));return m;}
 const GOALS=[{name:"Starter world",desc:"Enough to play a first session."},{name:"Full world",desc:"Measured against Voyage's own size limits for each section."}];
 let goal=0;
 
@@ -312,6 +338,7 @@ let goal=0;
 let base = clone(DEFAULT_WORLD);   // the loaded world, untouched
 let work = clone(DEFAULT_WORLD);   // the working copy the sliders edit
 let fileName = null;
+let WORLD_TEXT = 1;   // compact chars of the loaded world, for sections Voyage sets no limit on
 let activeTpl = null;
 
 function clone(o){return JSON.parse(JSON.stringify(o));}
@@ -464,28 +491,30 @@ function drawChanges(){
 }
 
 // ---------- Content ----------
-function areaRecords(w,c){return c.keys.flatMap(k=>Object.entries(w[k]||{})).filter(([k,r])=>!(c.skip&&r&&c.skip(r)));}
-function readyCounts(w){const R=refs(w);return Object.fromEntries(CONTENT.map(c=>[c.name,areaRecords(w,c).filter(([k,r])=>r&&typeof r==="object"&&c.ready(r,k,R)).length]));}
+function areaRecords(w,c){return c.keys.flatMap(k=>Object.entries(sec(w,k)).map(([id,r])=>[id,r,k])).filter(([k,r])=>!(c.skip&&r&&c.skip(r)));}
+function readyCounts(w){const R=refs(w);return Object.fromEntries(CONTENT.map(c=>[c.name,areaRecords(w,c).filter(([k,r,sk])=>c.ready(r,k,R,sk)).length]));}
 function drawContent(){
   const R=refs(work); const gaps=[], scores=[];
   [...$("goal").children].forEach((b,i)=>{b.classList.toggle("active",goal===i);b.setAttribute("aria-pressed",String(goal===i));});
   $("bars").innerHTML=CONTENT.map(c=>{
     const recs=areaRecords(work,c);
-    const readyRecs=recs.filter(([k,r])=>r&&typeof r==="object"&&c.ready(r,k,R));
+    const readyRecs=recs.filter(([k,r,sk])=>c.ready(r,k,R,sk));
     const n=recs.length, ok=readyRecs.length, rd=n?ok/n:0;
     const readySet=new Set(readyRecs.map(([,r])=>r));
     const full=goal===1?capShare(work,c,readySet):null;
     const target=c.stages[0], amount=full?full.f:Math.min(1,ok/target);
-    scores.push({name:c.name,score:Math.floor(amount*rd*100)});
-    if(n&&ok<n) gaps.push(`${c.name}: ${n-ok} not ready yet (needs ${c.need})`);
+    scores.push({name:c.name,score:ok?Math.max(1,Math.floor(amount*rd*100)):0});
+    if(n&&ok<n) gaps.push(`${c.name}: ${n-ok} of ${n} not ready (`+Object.entries(missingBy(c,recs,R)).map(([lab,x])=>`${x} missing ${lab}`).join(", ")+`)`);
     if(!full&&ok<target) gaps.push(`${c.name}: ${target-ok} more ready ${target-ok===1?"entry":"entries"} for a starter world`);
-    if(full&&full.f<1) gaps.push(`${c.name}: ${Math.floor(full.f*rd*100)}% of the full-world bar (`+full.parts.map(x=>`${x.k} ${fmt(x.used)} of ${fmt(x.cap)} ${x.m==="count"?"entries":"chars"}${x.whole?", no section limit: measured against the whole-world limit":""}`).join("; ")+`)`);
+    if(full&&full.f<1) gaps.push(`${c.name}: ${Math.floor(full.f*rd*100)}% of the full-world bar (`+full.parts.map(x=>`${x.k} ${fmt(x.used)} of ${fmt(x.cap)} ${x.m==="count"?"entries":"chars"}${x.share?" (an average area's share of this world's text; Voyage sets no limit on this section)":""}`).join("; ")+`)`);
     const sc=amount*rd, col=sc>=.95?"var(--good)":sc>=.5?"var(--avg)":"var(--bad)";
     return `<div class="bar"><span>${c.name}</span><div class="track"><div class="fill" style="width:${(sc*100).toFixed(0)}%;background:${col}"></div></div><span class="num">${full?`${Math.floor(full.f*100)}% of limit`:`${ok} / ${target}`}${n?` · ${Math.floor(rd*100)}% ready`:""}</span></div>`;
   }).join("");
   $("overallPct").textContent=Math.floor(scores.reduce((t,x)=>t+x.score,0)/scores.length)+"%";
   drawPie(scores);
-  const empty=CONTENT.filter(c=>!c.keys.some(k=>Object.keys(work[k]||{}).length)).map(c=>c.name);
+  const empty=CONTENT.filter(c=>!c.keys.some(k=>Object.keys(sec(work,k)).length)).map(c=>c.name);
+  const seeds=["authorSeeds","characterArchetypes","regionArchetypes","locationArchetypes","encounterElements"].map(k=>{const d=DEFAULT_SEEDS[k]||[];const ks=Object.keys(sec(work,k));return [k,ks.length,ks.filter(x=>!d.includes(x)).length];});
+  $("seedsTxt").textContent="AI generation seeds (not scored): "+seeds.map(([k,n,own])=>`${k} ${n}${own?` (${own} your own)`:" (Voyage's)"}`).join(" · ");
   $("overallTxt").textContent=`of a ${GOALS[goal].name.toLowerCase()}. `+(empty.length?"Not started: "+empty.join(", "):"Every area has a start.");
   $("gaps").innerHTML=gaps.length?gaps.map(g=>`<li>${esc(g)}</li>`).join(""):`<li class="empty">Nothing missing for a ${GOALS[goal].name.toLowerCase()}.</li>`;
 }
@@ -513,7 +542,7 @@ function drawPie(scores){
   const set=avg(n=>SETTING.includes(n)), play=avg(n=>!SETTING.includes(n));
   $("layers").innerHTML=`
     <div class="layer" style="background:#2f5e58"><b>Authored setting</b><span>lore, places, factions</span><big>${set}%</big></div>
-    <div class="layer" style="background:#6a3446"><b>Active play layer</b><span>NPCs, quests, events, starts, mechanics, items</span><big>${play}%</big></div>
+    <div class="layer" style="background:#6a3446"><b>Active play layer</b><span>NPCs, quests, events, starts, creator, modes, mechanics, items</span><big>${play}%</big></div>
     <div class="layer overall-hex"><b>Overall</b><big>${$("overallPct").textContent}</big><span>as a ${GOALS[goal].name.toLowerCase()}</span></div>`;
 }
 
@@ -536,7 +565,7 @@ function render(){
 
 // ---------- Load / export ----------
 function unwrap(o){
-  const isWorld=x=>x&&typeof x==="object"&&!Array.isArray(x)&&("heroesVersion" in x||"npcs" in x||"storyStarts" in x);
+  const isWorld=x=>x&&typeof x==="object"&&!Array.isArray(x)&&("heroesVersion" in x||"npcs" in x||"storyStarts" in x||"triggerDefinitions" in x);
   // Studio exports are the world itself; Creator API downloads wrap it ({world: {initialGameState: ...}}).
   let level=[o];
   for(let d=0;d<4&&level.length;d++){
@@ -547,18 +576,18 @@ function unwrap(o){
 }
 function loadWorld(obj,name){
   obj=unwrap(obj);
-  base=clone(obj); work=clone(obj); fileName=name; activeTpl=null;
+  base=clone(obj); work=clone(obj); fileName=name; activeTpl=null; WORLD_TEXT=Math.max(1,vsize(obj));
   $("src").textContent=`${name}${obj.heroesVersion?` (V${obj.heroesVersion})`:""}`;
   render();
 }
 $("file").addEventListener("change",e=>{
   const f=e.target.files[0]; if(!f) return;
-  f.text().then(t=>loadWorld(JSON.parse(t),f.name)).catch(err=>alert("Could not read that file: "+err.message));
+  f.text().then(t=>loadWorld(JSON.parse(t.replace(/^\uFEFF/,"")),f.name)).catch(err=>alert("Could not read that file: "+err.message));
 });
 document.addEventListener("dragover",e=>e.preventDefault());
 document.addEventListener("drop",e=>{
   e.preventDefault(); const f=e.dataTransfer.files[0]; if(!f) return;
-  f.text().then(t=>loadWorld(JSON.parse(t),f.name)).catch(err=>alert("Could not read that file: "+err.message));
+  f.text().then(t=>loadWorld(JSON.parse(t.replace(/^\uFEFF/,"")),f.name)).catch(err=>alert("Could not read that file: "+err.message));
 });
 $("reset").onclick=()=>{work=clone(base);activeTpl=null;render();};
 $("export").onclick=()=>{
@@ -571,7 +600,7 @@ $("diff").onchange=render; $("lvl").onchange=render;
 buildLevels(); buildFields(); buildTemplates();
 GOALS.forEach((g,i)=>{const b=document.createElement("button");b.className="tpl";b.innerHTML=`<b>${g.name}</b><span>${g.desc}</span>`;b.onclick=()=>{goal=i;drawContent();};$("goal").appendChild(b);});
 render();
-window.__tuner={loadWorld,readyCounts,FIELDS,cur,was,TEMPLATES,work:()=>work};
+window.__tuner={sec,loadWorld,readyCounts,CONTENT,refs,areaRecords,missingBy,FIELDS,cur,was,TEMPLATES,work:()=>work};
 </script>
 </body>
 </html>
