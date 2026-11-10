@@ -129,7 +129,7 @@ svg text{fill:var(--muted);font-size:14px}
       <div class="piewrap">
         <div><h3 class="ph">Completion by area</h3>
           <div class="row" style="align-items:center;gap:20px"><svg id="pie" viewBox="0 0 260 260" width="260" height="260" role="img"></svg><ul class="pielegend" id="pieLegend"></ul></div>
-          <p class="note">Every area gets an equal wedge. The coloured part fills outward with its score (amount toward your goal × share ready), so a full wedge is done and a short one shows the gap.</p></div>
+          <p class="note">Each area is worth up to an equal share of the pie, sized by its score in [brackets] (amount toward your goal × share ready). The coloured slices add up to the overall %, and grey is what is still to build.</p></div>
         <div class="layers" id="layers"></div>
       </div>
       <div class="bars" id="bars"></div>
@@ -465,20 +465,24 @@ function drawContent(){
 }
 
 function drawPie(scores){
-  // Equal wedge per area; the coloured part grows from the centre by the area's score (by area, so 50 fills half the wedge).
-  const cx=130, cy=130, r=118, n=scores.length, step=2*Math.PI/n;
+  // Slice = the area's slice of the whole world (score / 100 / areas); the grey slice is what is still to build.
+  const cx=130, cy=130, r=118, n=scores.length;
+  const parts=scores.map((x,i)=>({f:x.score/100/n, c:PIE[i%PIE.length]}));
+  const left=1-parts.reduce((t,x)=>t+x.f,0);
+  if(left>0.0005) parts.push({f:left, c:"var(--panel2)", grey:true});
   const pt=(rad,a)=>`${(cx+rad*Math.cos(a)).toFixed(1)},${(cy+rad*Math.sin(a)).toFixed(1)}`;
-  const wedge=(rad,a1,a2)=>`M${cx},${cy} L${pt(rad,a1)} A${rad},${rad} 0 0 1 ${pt(rad,a2)} Z`;
-  let s="";
-  scores.forEach((x,i)=>{
-    const a1=-Math.PI/2+i*step, a2=a1+step, m=(a1+a2)/2, rf=r*Math.sqrt(x.score/100);
-    s+=`<path d="${wedge(r,a1,a2)}" fill="var(--panel2)" stroke="#111" stroke-width="2"/>`;
-    if(x.score>0) s+=`<path d="${wedge(rf,a1,a2)}" fill="${PIE[i%PIE.length]}" stroke="#111" stroke-width="2"/>`;
-    s+=`<text x="${pt(r*.72,m).split(",")[0]}" y="${(+pt(r*.72,m).split(",")[1]+5).toFixed(1)}" text-anchor="middle" style="fill:#f2f2f4;font-weight:600">${x.score}</text>`;
+  let s="", ang=-Math.PI/2;
+  parts.forEach(x=>{
+    if(x.f<=0) return;
+    const a2=ang+x.f*2*Math.PI, m=(ang+a2)/2;
+    s+= x.f>=0.9995 ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${x.c}" stroke="#111" stroke-width="2"/>`
+                    : `<path d="M${cx},${cy} L${pt(r,ang)} A${r},${r} 0 ${x.f>.5?1:0} 1 ${pt(r,a2)} Z" fill="${x.c}" stroke="#111" stroke-width="2"/>`;
+    if(x.f>=.035){const [tx,ty]=pt(r*(x.grey?.5:.68),m).split(",");s+=`<text x="${tx}" y="${(+ty+5).toFixed(1)}" text-anchor="middle" style="fill:${x.grey?"var(--muted)":"#f2f2f4"};font-weight:600">${x.grey?"still to build ":""}${Math.round(x.f*100)}%</text>`;}
+    ang=a2;
   });
   $("pie").innerHTML=s;
   $("pie").setAttribute("aria-label","Completion by area: "+scores.map(x=>`${x.name} ${x.score}`).join(", "));
-  $("pieLegend").innerHTML=scores.map((x,i)=>`<li><i style="background:${PIE[i%PIE.length]}"></i>${esc(x.name)} <b>[${x.score}]</b></li>`).join("");
+  $("pieLegend").innerHTML=scores.map((x,i)=>`<li><i style="background:${PIE[i%PIE.length]}"></i>${esc(x.name)} <b>[${x.score}]</b></li>`).join("")+`<li><i style="background:var(--panel2);border:1px solid var(--line)"></i>Still to build</li>`;
   const avg=names=>{const v=scores.filter(x=>names(x.name));return v.length?Math.round(v.reduce((t,x)=>t+x.score,0)/v.length):0;};
   const set=avg(n=>SETTING.includes(n)), play=avg(n=>!SETTING.includes(n));
   $("layers").innerHTML=`
