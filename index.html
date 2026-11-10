@@ -81,7 +81,7 @@ svg text{fill:var(--muted);font-size:14px}
 </head>
 <body>
 <header>
-  <h1>World Tuner</h1><span class="src" title="Page version">v2026-11-11e</span>
+  <h1>World Tuner</h1><span class="src" title="Page version">v2026-11-11f</span>
   <span class="src" id="src">Voyage default settings (no world loaded)</span>
   <span class="spacer"></span>
   <label class="filebtn">Load world.json<input type="file" id="file" accept=".json,application/json"></label>
@@ -98,7 +98,7 @@ svg text{fill:var(--muted);font-size:14px}
     </section>
     <section class="card">
       <h2>Tuning</h2>
-      <p class="sub">Drag a slider and the charts redraw. Grey numbers are the loaded world's value.</p>
+      <p class="sub">Drag a slider and the charts redraw. Under each slider: the loaded world's value and where it came from (this world, or Voyage's default when the world leaves it unset).</p>
       <div id="fields"></div>
     </section>
   </div>
@@ -122,7 +122,7 @@ svg text{fill:var(--muted);font-size:14px}
     <section class="card">
       <h2>World content</h2>
       <div class="row" style="justify-content:space-between;align-items:flex-start">
-        <p class="sub" style="max-width:640px">The full-world bar is <b>Voyage's own limit</b> for each section (how much a world is allowed to hold), so 100 means that area is filled to the cap. Quests and narrative events have no published limit, so they use The Asagiri Isles' counts. Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
+        <p class="sub" style="max-width:640px">The full-world bar is <b>Voyage's own limit</b> for each section (how much a world is allowed to hold), so 100 means that area is filled to the cap. Quests and narrative events have no limit of their own (Voyage accepted 6 MB of each), so their text is measured against the 12.5 MB whole-world limit. Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
         <div class="templates" id="goal" style="grid-template-columns:1fr 1fr;min-width:340px"></div>
       </div>
       <div class="overall"><span class="big" id="overallPct">0%</span><span class="empty" id="overallTxt"></span></div>
@@ -289,8 +289,8 @@ const CAPS={
   "NPCs":[{k:"npcs",m:"size",cap:2000000}],
   "NPC types":[{k:"npcTypes",m:"size",cap:500000}],
   "Story starts":[{k:"storyStarts",m:"count",cap:101}],
-  "Quests":[{k:"quests",m:"count",cap:582,asagiri:true}],
-  "Narrative events":[{k:"narrativeEvents",m:"count",cap:49,asagiri:true}],
+  "Quests":[{k:"quests",m:"size",cap:12500000,whole:true}],
+  "Narrative events":[{k:"narrativeEvents",m:"size",cap:12500000,whole:true}],
   "Skills / abilities / traits":[{k:"skills",m:"count",cap:250},{k:"abilities",m:"count",cap:1500},{k:"traits",m:"size",cap:1750000}],
   "Items":[{k:"itemTypes",m:"size",cap:350000}],
 };
@@ -299,7 +299,7 @@ function capShare(w,c,readySet){
   const parts=CAPS[c.name].map(p=>{
     const recs=Object.entries(w[p.k]||{}).filter(([,r])=>readySet.has(r));
     const used=p.m==="count"?recs.length:recs.reduce((t,[,r])=>t+vsize(r),0);
-    return {used,cap:p.cap,m:p.m,asagiri:p.asagiri,k:p.k};
+    return {used,cap:p.cap,m:p.m,whole:p.whole,k:p.k};
   });
   return {f:Math.min(1,parts.reduce((t,x)=>t+Math.min(1,x.used/x.cap),0)/parts.length),parts};
 }
@@ -479,7 +479,7 @@ function drawContent(){
     scores.push({name:c.name,score:Math.floor(amount*rd*100)});
     if(n&&ok<n) gaps.push(`${c.name}: ${n-ok} not ready yet (needs ${c.need})`);
     if(!full&&ok<target) gaps.push(`${c.name}: ${target-ok} more ready ${target-ok===1?"entry":"entries"} for a starter world`);
-    if(full&&full.f<1) gaps.push(`${c.name}: ${Math.floor(full.f*rd*100)}% of the full-world bar (`+full.parts.map(x=>`${x.k} ${fmt(x.used)} of ${fmt(x.cap)} ${x.m==="count"?"entries":"chars"}${x.asagiri?", Asagiri's count: Voyage sets no limit":""}`).join("; ")+`)`);
+    if(full&&full.f<1) gaps.push(`${c.name}: ${Math.floor(full.f*rd*100)}% of the full-world bar (`+full.parts.map(x=>`${x.k} ${fmt(x.used)} of ${fmt(x.cap)} ${x.m==="count"?"entries":"chars"}${x.whole?", no section limit: measured against the whole-world limit":""}`).join("; ")+`)`);
     const sc=amount*rd, col=sc>=.95?"var(--good)":sc>=.5?"var(--avg)":"var(--bad)";
     return `<div class="bar"><span>${c.name}</span><div class="track"><div class="fill" style="width:${(sc*100).toFixed(0)}%;background:${col}"></div></div><span class="num">${full?`${Math.floor(full.f*100)}% of limit`:`${ok} / ${target}`}${n?` · ${Math.floor(rd*100)}% ready`:""}</span></div>`;
   }).join("");
@@ -526,7 +526,9 @@ function render(){
     el.step=Number.isInteger(Math.round((v-f.min)/f.step*1e6)/1e6)?f.step:"any";
     if(Number(el.value)!==v) el.value=v;
     $("o_"+f.id).textContent=v;
-    const be=$("b_"+f.id); be.textContent=v===b?`loaded: ${b}`:`loaded: ${b} (${pct(b,v)})`; be.classList.toggle("changed",v!==b);
+    const raw=f.get(base), def=f.get(clone(DEFAULT_WORLD));
+    const src=raw==null?"not set, Voyage default":Number(raw)===def?"world, same as Voyage default":"from this world";
+    const be=$("b_"+f.id); be.textContent=(v===b?`loaded: ${b}`:`loaded: ${b} (${pct(b,v)})`)+` · ${fileName?src:"Voyage default"}`; be.classList.toggle("changed",v!==b);
   });
   [...$("templates").children].forEach((b,i)=>{b.classList.toggle("active",activeTpl===i);b.setAttribute("aria-pressed",String(activeTpl===i));});
   drawReadouts(); drawHP(); drawXP(); drawRoll(); drawChanges(); drawContent();
