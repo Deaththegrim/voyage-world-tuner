@@ -91,7 +91,7 @@ svg{direction:ltr}.path,code{direction:ltr;unicode-bidi:isolate}
 </head>
 <body>
 <header>
-  <h1>World Tuner</h1><span class="src" data-i18n-title="version.title" title="Page version">v2026-11-13b</span>
+  <h1>World Tuner</h1><span class="src" data-i18n-title="version.title" title="Page version">v2026-11-13c</span>
   <span class="src" id="src"></span>
   <span class="spacer"></span>
   <label for="lang" class="empty" data-i18n="lang.label">Language</label>
@@ -538,7 +538,7 @@ function drawReadouts(){
 function drawChanges(){
   const items=FIELDS.filter(f=>cur(f.id)!==was(f.id)).map(f=>{
     const a=was(f.id), b=cur(f.id);
-    return `<li><b>${esc(t(`f.${f.id}.label`))}</b> ${nv(a)} → ${nv(b)}<div><code>${f.path}</code></div><div class="why">${esc(t(`f.${f.id}.why`,a,b))}</div></li>`;
+    return `<li><b>${esc(t(`f.${f.id}.label`))}</b> ${iso(`${nv(a)} → ${nv(b)}`)}<div><code>${f.path}</code></div><div class="why">${esc(t(`f.${f.id}.why`,a,b))}</div></li>`;
   });
   $("changes").innerHTML=items.length?items.join(""):`<li class="empty">${esc(t("chg.empty"))}</li>`;
 }
