@@ -22,6 +22,8 @@ button:focus-visible,select:focus-visible,input:focus-visible,.filebtn:focus-wit
 button.primary{background:var(--accent);border-color:var(--accent);color:#06121f;font-weight:600}
 .filebtn input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
 .filebtn{position:relative}
+header button,header .filebtn{white-space:nowrap}
+#lang{flex:0 0 auto}
 main{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px 20px;align-items:start}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
 .card h2{font-size:14px;margin:0 0 4px;font-weight:600}
@@ -61,7 +63,7 @@ svg text{fill:var(--muted);font-size:14px}
 .empty{color:var(--muted);font-size:13px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .note{color:var(--muted);font-size:12px;margin-top:8px}
-.bars .bar{display:grid;grid-template-columns:170px 1fr 130px;gap:10px;align-items:center;margin:7px 0;font-size:13px}
+.bars .bar{display:grid;grid-template-columns:minmax(120px,170px) 1fr auto;gap:10px;align-items:center;margin:7px 0;font-size:13px}
 .bars .track{height:10px;background:var(--panel2);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
 .bars .fill{height:100%;border-radius:99px;transition:width .25s}
 .bars .num{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px}
@@ -77,28 +79,31 @@ svg text{fill:var(--muted);font-size:14px}
 .layer span{font-size:12px;opacity:.85}.layer big{font-size:26px;font-weight:700}
 .overall-hex{background:#6e6e3a;clip-path:polygon(8% 0,92% 0,100% 50%,92% 100%,8% 100%,0 50%);align-items:center;text-align:center}
 @media (max-width:1100px){main{grid-template-columns:1fr}.piewrap{grid-template-columns:1fr}.grid2,.readouts{grid-template-columns:1fr}}
+@media (max-width:640px){.bars .bar{grid-template-columns:1fr auto}.bars .track{grid-column:1/-1;grid-row:2}}
 </style>
 </head>
 <body>
 <header>
-  <h1>World Tuner</h1><span class="src" title="Page version">v2026-11-11k</span>
-  <span class="src" id="src">Voyage default settings (no world loaded)</span>
+  <h1>World Tuner</h1><span class="src" data-i18n-title="version.title" title="Page version">v2026-11-13a</span>
+  <span class="src" id="src"></span>
   <span class="spacer"></span>
-  <label class="filebtn">Load world.json<input type="file" id="file" accept=".json,application/json"></label>
-  <button id="reset">Reset to loaded</button>
-  <button class="primary" id="export">Export changed world</button>
+  <label for="lang" class="empty" data-i18n="lang.label">Language</label>
+  <select id="lang"></select>
+  <label class="filebtn"><span data-i18n="btn.load">Load world.json</span><input type="file" id="file" accept=".json,application/json"></label>
+  <button id="reset" data-i18n="btn.reset">Reset to loaded</button>
+  <button class="primary" id="export" data-i18n="btn.export">Export changed world</button>
 </header>
 
 <main>
   <div class="stack">
     <section class="card">
-      <h2>Start from a template</h2>
-      <p class="sub">Each one starts from the loaded world and fills in the fields below. Every change it makes shows up under "What changed".</p>
+      <h2 data-i18n="tpl.h"></h2>
+      <p class="sub" data-i18n="tpl.sub"></p>
       <div class="templates" id="templates"></div>
     </section>
     <section class="card">
-      <h2>Tuning</h2>
-      <p class="sub">Drag a slider and the charts redraw. Under each slider: the loaded world's value and where it came from (this world, or Voyage's default when the world leaves it unset).</p>
+      <h2 data-i18n="tun.h"></h2>
+      <p class="sub" data-i18n="tun.sub"></p>
       <div id="fields"></div>
     </section>
   </div>
@@ -106,13 +111,11 @@ svg text{fill:var(--muted);font-size:14px}
   <div class="stack">
     <section class="card">
       <div class="row" style="justify-content:space-between">
-        <div><h2>How it will feel</h2><p class="sub" style="margin:0">Compared with the loaded world. Calculated from the engine's own formulas, no AI guessing.</p></div>
+        <div><h2 data-i18n="feel.h"></h2><p class="sub" style="margin:0" data-i18n="feel.sub"></p></div>
         <div class="row">
-          <label for="diff" class="empty">Player difficulty</label>
-          <select id="diff">
-            <option value="0.5">Very easy</option><option value="0.75">Easy</option><option value="1" selected>Medium</option><option value="1.25">Hard</option><option value="1.5">Very hard</option>
-          </select>
-          <label for="lvl" class="empty">Compare at level</label>
+          <label for="diff" class="empty" data-i18n="feel.diff"></label>
+          <select id="diff"></select>
+          <label for="lvl" class="empty" data-i18n="feel.lvl"></label>
           <select id="lvl"></select>
         </div>
       </div>
@@ -120,59 +123,59 @@ svg text{fill:var(--muted);font-size:14px}
     </section>
 
     <section class="card">
-      <h2>World content</h2>
+      <h2 data-i18n="content.h"></h2>
       <div class="row" style="justify-content:space-between;align-items:flex-start">
-        <p class="sub" style="max-width:640px">The full-world bar is <b>Voyage's own limit</b> for each section (how much a world is allowed to hold), so 100 means that area is filled to the cap. Quests, arcs, narrative events and world voices have no limit of their own (Voyage accepted 6 MB of quests or events), so they score against an average area's share of this world's text (the world's total ÷ 12 areas). Only <b>ready</b> records count: filled in, and reachable in play. That means a quest a start or trigger offers, an event something starts, and an NPC with a description, personality, looks and a place. Pick what you are building toward.</p>
+        <p class="sub" style="max-width:640px" data-i18n="content.sub"></p>
         <div class="templates" id="goal" style="grid-template-columns:1fr 1fr;min-width:340px"></div>
       </div>
       <div class="overall"><span class="big" id="overallPct">0%</span><span class="empty" id="overallTxt"></span></div>
       <div class="piewrap">
-        <div><h3 class="ph">Completion by area</h3>
+        <div><h3 class="ph" data-i18n="pie.h"></h3>
           <div class="row" style="align-items:center;gap:20px"><svg id="pie" viewBox="0 0 260 260" width="260" height="260" role="img"></svg><ul class="pielegend" id="pieLegend"></ul></div>
-          <p class="note">Each area is worth up to an equal share of the pie, sized by its score in [brackets] (amount toward your goal × share ready). The coloured slices add up to the overall %, and grey is what is still to build.</p></div>
+          <p class="note" data-i18n="pie.note"></p></div>
         <div class="layers" id="layers"></div>
       </div>
       <div class="bars" id="bars"></div>
       <p class="note" id="seedsTxt"></p>
-      <h2 style="margin-top:14px">What's missing</h2>
+      <h2 style="margin-top:14px" data-i18n="missing.h"></h2>
       <ul class="changes" id="gaps"></ul>
     </section>
     <div class="grid2">
       <section class="card">
-        <h2>Health by level</h2>
-        <p class="sub">The player's health against an NPC of the same level. Dashed lines are the loaded world.</p>
-        <svg id="hpChart" viewBox="0 0 520 260" width="100%" role="img" aria-label="Health by level chart"></svg>
+        <h2 data-i18n="hp.h"></h2>
+        <p class="sub" data-i18n="hp.sub"></p>
+        <svg id="hpChart" viewBox="0 0 520 260" width="100%" role="img"></svg>
         <div class="legend">
-          <span><i style="background:var(--player)"></i>Player, no picks</span>
-          <span><i style="background:#a8ecd9"></i>Player, typical creator picks</span>
-          <span><i style="background:var(--avg)"></i>Average NPC</span>
-          <span><i style="background:var(--strong)"></i>Elite NPC</span>
-          <span><i style="background:var(--boss)"></i>Boss NPC</span>
-          <span><i class="dash"></i>Before your changes</span>
+          <span><i style="background:var(--player)"></i><span data-i18n="hp.lg.player"></span></span>
+          <span><i style="background:#a8ecd9"></i><span data-i18n="hp.lg.typ"></span></span>
+          <span><i style="background:var(--avg)"></i><span data-i18n="hp.lg.avg"></span></span>
+          <span><i style="background:var(--strong)"></i><span data-i18n="hp.lg.elite"></span></span>
+          <span><i style="background:var(--boss)"></i><span data-i18n="hp.lg.boss"></span></span>
+          <span><i class="dash"></i><span data-i18n="lg.before"></span></span>
         </div>
         <p class="note" id="hpNote"></p>
       </section>
       <section class="card">
-        <h2>XP needed to reach each level</h2>
-        <p class="sub">Total XP from level 1. A steeper line means a slower climb.</p>
-        <svg id="xpChart" viewBox="0 0 520 260" width="100%" role="img" aria-label="XP curve chart"></svg>
+        <h2 data-i18n="xp.h"></h2>
+        <p class="sub" data-i18n="xp.sub"></p>
+        <svg id="xpChart" viewBox="0 0 520 260" width="100%" role="img"></svg>
         <div class="legend">
-          <span><i style="background:var(--accent)"></i>Now</span>
-          <span><i class="dash"></i>Before your changes</span>
+          <span><i style="background:var(--accent)"></i><span data-i18n="xp.lg.now"></span></span>
+          <span><i class="dash"></i><span data-i18n="lg.before"></span></span>
         </div>
       </section>
     </div>
 
     <div class="grid2">
       <section class="card">
-        <h2>What a new character adds to a roll</h2>
-        <p class="sub">The attribute part of a skill check, (attribute − 10) × bonus per point, for a new character.</p>
-        <svg id="rollChart" viewBox="0 0 520 220" width="100%" role="img" aria-label="Starting roll bonus chart"></svg>
+        <h2 data-i18n="roll.h"></h2>
+        <p class="sub" data-i18n="roll.sub"></p>
+        <svg id="rollChart" viewBox="0 0 520 220" width="100%" role="img"></svg>
         <div class="legend" id="rollLegend"></div><p class="note" id="rollNote"></p>
       </section>
       <section class="card">
-        <h2>What changed</h2>
-        <p class="sub">In plain words, the effect each edit has in play.</p>
+        <h2 data-i18n="chg.h"></h2>
+        <p class="sub" data-i18n="chg.sub"></p>
         <ul class="changes" id="changes" aria-live="polite"></ul>
       </section>
     </div>
@@ -180,6 +183,7 @@ svg text{fill:var(--muted);font-size:14px}
   </div>
 </main>
 
+<script src="i18n.js"></script>
 <script>
 // ---------- Voyage defaults (blank V37 export) ----------
 const DEFAULT_WORLD = {
@@ -206,52 +210,34 @@ const esc = v => String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 
 // ---------- Tunable fields ----------
 const FIELDS = [
-  {id:"startAttr", label:"Starting attribute value", path:"attributeSettings.startingAttributeValue", min:4,max:16,step:1,
-   get:w=>rd(w,"attributeSettings","startingAttributeValue"), set:(w,v)=>sect(w,"attributeSettings").startingAttributeValue=v,
-   hint:"Every attribute starts here. 10 is neutral on rolls.",
-   why:(a,b)=>`New characters start ${b>a?"stronger":"weaker"}: every roll shifts ${fmtSigned((b-a)*cur("attrMod"))} before skills.`},
-  {id:"attrMod", label:"Roll bonus per attribute point", path:"attributeSettings.attributeBonusModifier", min:0,max:5,step:0.5,
-   get:w=>rd(w,"attributeSettings","attributeBonusModifier"), set:(w,v)=>sect(w,"attributeSettings").attributeBonusModifier=v,
-   hint:"How much each point above or below 10 moves a skill check.",
-   why:(a,b)=>`Attributes matter ${b>a?"more":"less"} on rolls, so builds feel ${b>a?"more":"less"} different from each other.`},
-  {id:"hp0", label:"Player starting health", path:"resourceSettings.&lt;health&gt;.initialValue + maxValue", min:20,max:300,step:5,
-   get:w=>hrd(w,"maxValue"), set:(w,v)=>{H(w).maxValue=v;H(w).initialValue=v;},
-   hint:"Sets both starting and maximum health.",
-   why:(a,b)=>`Level 1 characters can take ${b>a?"more":"fewer"} hits before going down (${pct(a,b)}).`},
-  {id:"hpGain", label:"Player health gain per level", path:"resourceSettings.&lt;health&gt;.gainPerLevel", min:0,max:40,step:1,
-   get:w=>hrd(w,"gainPerLevel"), set:(w,v)=>H(w).gainPerLevel=v,
-   hint:"Added to max health on every level up.",
-   why:(a,b)=>`Players ${b>a?"pull ahead of":"fall behind"} enemies as they level. Felt most from level 10 on.`},
-  {id:"npcHpLvl", label:"NPC health gain per level", path:"otherSettings.npcHealthPerLevel", min:0,max:40,step:1,
-   get:w=>rd(w,"otherSettings","npcHealthPerLevel"), set:(w,v)=>sect(w,"otherSettings").npcHealthPerLevel=v,
-   hint:"Only for NPCs without a hand-set max HP.",
-   why:(a,b)=>`Higher level enemies get ${b>a?"tankier":"softer"}, so fights run ${b>a?"longer":"shorter"} later on.`},
-  {id:"npcMin", label:"NPC base health", path:"otherSettings.npcMinHealth", min:10,max:200,step:2,
-   get:w=>rd(w,"otherSettings","npcMinHealth"), set:(w,v)=>sect(w,"otherSettings").npcMinHealth=v,
-   hint:"Every NPC's health floor before level scaling.",
-   why:(a,b)=>`Early fights run ${b>a?"longer":"shorter"}. This matters most at low levels.`},
-  {id:"xp0", label:"XP for the first level up", path:"progressionSettings.startingCharacterLevelUpRequirement", min:100,max:3000,step:50,
-   get:w=>rd(w,"progressionSettings","startingCharacterLevelUpRequirement"), set:(w,v)=>sect(w,"progressionSettings").startingCharacterLevelUpRequirement=v,
-   hint:"How soon the first level up arrives.",
-   why:(a,b)=>`The first level up comes ${b>a?"later":"sooner"} (${pct(a,b)}).`},
-  {id:"xpStep", label:"Extra XP needed per level", path:"progressionSettings.extraRequiredXPPerCharacterLevel", min:0,max:1500,step:50,
-   get:w=>rd(w,"progressionSettings","extraRequiredXPPerCharacterLevel"), set:(w,v)=>sect(w,"progressionSettings").extraRequiredXPPerCharacterLevel=v,
-   hint:"How much harder each next level gets.",
-   why:(a,b)=>`Later levels come ${b>a?"slower":"faster"}. A long campaign ${b>a?"keeps something to chase":"tops out sooner"}.`},
-  {id:"attrEvery", label:"Attribute point every N levels", path:"progressionSettings.attributePointEveryLevels", min:1,max:10,step:1,
-   get:w=>rd(w,"progressionSettings","attributePointEveryLevels"), set:(w,v)=>sect(w,"progressionSettings").attributePointEveryLevels=v,
-   hint:"Lower means characters grow their attributes more often.",
-   why:(a,b)=>`Characters raise attributes ${b<a?"more":"less"} often (every ${b} levels instead of ${a}).`},
+  {id:"startAttr", path:"attributeSettings.startingAttributeValue", min:4,max:16,step:1,
+   get:w=>rd(w,"attributeSettings","startingAttributeValue"), set:(w,v)=>sect(w,"attributeSettings").startingAttributeValue=v},
+  {id:"attrMod", path:"attributeSettings.attributeBonusModifier", min:0,max:5,step:0.5,
+   get:w=>rd(w,"attributeSettings","attributeBonusModifier"), set:(w,v)=>sect(w,"attributeSettings").attributeBonusModifier=v},
+  {id:"hp0", path:"resourceSettings.&lt;health&gt;.initialValue + maxValue", min:20,max:300,step:5,
+   get:w=>hrd(w,"maxValue"), set:(w,v)=>{H(w).maxValue=v;H(w).initialValue=v;}},
+  {id:"hpGain", path:"resourceSettings.&lt;health&gt;.gainPerLevel", min:0,max:40,step:1,
+   get:w=>hrd(w,"gainPerLevel"), set:(w,v)=>H(w).gainPerLevel=v},
+  {id:"npcHpLvl", path:"otherSettings.npcHealthPerLevel", min:0,max:40,step:1,
+   get:w=>rd(w,"otherSettings","npcHealthPerLevel"), set:(w,v)=>sect(w,"otherSettings").npcHealthPerLevel=v},
+  {id:"npcMin", path:"otherSettings.npcMinHealth", min:10,max:200,step:2,
+   get:w=>rd(w,"otherSettings","npcMinHealth"), set:(w,v)=>sect(w,"otherSettings").npcMinHealth=v},
+  {id:"xp0", path:"progressionSettings.startingCharacterLevelUpRequirement", min:100,max:3000,step:50,
+   get:w=>rd(w,"progressionSettings","startingCharacterLevelUpRequirement"), set:(w,v)=>sect(w,"progressionSettings").startingCharacterLevelUpRequirement=v},
+  {id:"xpStep", path:"progressionSettings.extraRequiredXPPerCharacterLevel", min:0,max:1500,step:50,
+   get:w=>rd(w,"progressionSettings","extraRequiredXPPerCharacterLevel"), set:(w,v)=>sect(w,"progressionSettings").extraRequiredXPPerCharacterLevel=v},
+  {id:"attrEvery", path:"progressionSettings.attributePointEveryLevels", min:1,max:10,step:1,
+   get:w=>rd(w,"progressionSettings","attributePointEveryLevels"), set:(w,v)=>sect(w,"progressionSettings").attributePointEveryLevels=v},
 ];
 
 // ---------- Templates ----------
 const TEMPLATES = [
-  {name:"Voyage default", desc:"The blank world's numbers.", set:{startAttr:8,attrMod:2.5,hp0:80,hpGain:10,npcHpLvl:12,npcMin:66,xp0:1000,xpStep:400,attrEvery:5}},
-  {name:"Story first", desc:"Gentler fights. Room to explore and talk.", set:{startAttr:12,hp0:110,hpGain:14,npcHpLvl:10,npcMin:56}},
-  {name:"A bit harder", desc:"Players grow slower than enemies.", set:{hpGain:8,npcHpLvl:14}},
-  {name:"Gritty and lethal", desc:"Low health, tough foes. Every fight costs.", set:{startAttr:8,hp0:55,hpGain:6,npcHpLvl:14,npcMin:80}},
-  {name:"Power fantasy", desc:"Strong from the start, fast levels.", set:{startAttr:12,attrMod:3,hp0:140,hpGain:18,npcHpLvl:10,xp0:600,xpStep:250,attrEvery:3}},
-  {name:"Long campaign", desc:"Slow, steady growth over many sessions.", set:{xp0:1500,xpStep:650,attrEvery:5,hpGain:9}},
+  {set:{startAttr:8,attrMod:2.5,hp0:80,hpGain:10,npcHpLvl:12,npcMin:66,xp0:1000,xpStep:400,attrEvery:5}},
+  {set:{startAttr:12,hp0:110,hpGain:14,npcHpLvl:10,npcMin:56}},
+  {set:{hpGain:8,npcHpLvl:14}},
+  {set:{startAttr:8,hp0:55,hpGain:6,npcHpLvl:14,npcMin:80}},
+  {set:{startAttr:12,attrMod:3,hp0:140,hpGain:18,npcHpLvl:10,xp0:600,xpStep:250,attrEvery:3}},
+  {set:{xp0:1500,xpStep:650,attrEvery:5,hpGain:9}},
 ];
 
 // ---------- Content readiness ----------
@@ -333,7 +319,7 @@ const SETTING=["Lore","Places","Factions"];
 const applies=(chk,sk)=>!chk[2]||chk[2].includes(sk);
 CONTENT.forEach(c=>{c.ready=(r,k,R,sk)=>r&&typeof r==="object"&&c.checks.every(chk=>!applies(chk,sk)||chk[1](r,k,R));});
 function missingBy(c,recs,R){const m={};recs.forEach(([k,r,sk])=>c.checks.forEach(chk=>{if(applies(chk,sk)&&!(r&&typeof r==="object"&&chk[1](r,k,R)))m[chk[0]]=(m[chk[0]]||0)+1;}));return m;}
-const GOALS=[{name:"Starter world",desc:"Enough to play a first session."},{name:"Full world",desc:"Measured against Voyage's own size limits for each section."}];
+const GOALS=[0,1];
 let goal=0;
 
 // ---------- State ----------
@@ -343,13 +329,21 @@ let fileName = null;
 let WORLD_TEXT = 1;   // compact chars of the loaded world, for sections Voyage sets no limit on
 let activeTpl = null;
 
+// ---------- Language ----------
+const pickLang = () => { try{ const s=localStorage.getItem("tuner.lang"); if(s&&I18N[s]) return s; }catch(e){}
+  const n=(navigator.languages||[navigator.language||"en"]).map(x=>String(x).slice(0,2).toLowerCase()).find(x=>I18N[x]); return n||"en"; };
+let LANG = pickLang();
+function t(k,...a){ const v=k in I18N[LANG]?I18N[LANG][k]:I18N.en[k]; return typeof v==="function"?v(...a):v==null?k:v; }
+const areaName = n => t("area."+n), chkName = n => t("chk."+n);
+
 function clone(o){return JSON.parse(JSON.stringify(o));}
 function num(v,d){v=Number(v);return Number.isFinite(v)?v:d;}
 function val(w,id){const f=FIELDS.find(f=>f.id===id);const d=f.get(clone(DEFAULT_WORLD));return num(f.get(w),d);}
 const cur = id => val(work,id), was = id => val(base,id);
-function fmt(n){return Math.round(n).toLocaleString();}
-function fmtSigned(n){n=Math.round(n*10)/10;return (n>0?"+":n<0?"−":"±")+Math.abs(n);}
-function pct(a,b){if(!a)return "new";const p=Math.round((b-a)/a*100);return (p>0?"+":"")+p+"%";}
+const nv=n=>Number(n).toLocaleString(LOCALES[LANG],{useGrouping:false,maximumFractionDigits:6});   // a slider value as written in the page language
+function fmt(n){return Math.round(n).toLocaleString(LOCALES[LANG]);}
+function fmtSigned(n){n=Math.round(n*10)/10;return (n>0?"+":n<0?"−":"±")+Math.abs(n).toLocaleString(LOCALES[LANG]);}
+function pct(a,b){if(!a)return t("pct.new");const p=Math.round((b-a)/a*100);return (p>0?"+":"")+p+"%";}
 
 // ---------- Engine formulas ----------
 // attributeSettings doc: attributeStatModifiers maps an attribute to [{variable, amount}] ("every point of the attribute adds amount");
@@ -400,20 +394,20 @@ const rollBonus = (w,attr) => (attr-10)*val(w,"attrMod");
 const $ = id => document.getElementById(id);
 function buildTemplates(){
   $("templates").innerHTML = "";
-  TEMPLATES.forEach((t,i)=>{
+  TEMPLATES.forEach((tp,i)=>{
     const b=document.createElement("button");
     b.className="tpl"; b.setAttribute("aria-pressed","false");
-    b.innerHTML=`<b>${t.name}</b><span>${t.desc}</span>`;
-    b.onclick=()=>{ activeTpl=i; work=clone(base); for(const [id,v] of Object.entries(t.set)) FIELDS.find(f=>f.id===id).set(work,v); render(); };
+    b.innerHTML=`<b>${esc(t(`tpl.${i}.name`))}</b><span>${esc(t(`tpl.${i}.desc`))}</span>`;
+    b.onclick=()=>{ activeTpl=i; work=clone(base); for(const [id,v] of Object.entries(tp.set)) FIELDS.find(f=>f.id===id).set(work,v); render(); };
     $("templates").appendChild(b);
   });
 }
 function buildFields(){
   $("fields").innerHTML = FIELDS.map(f=>`
     <div class="field">
-      <label for="f_${f.id}"><span>${f.label}</span><output id="o_${f.id}"></output></label>
+      <label for="f_${f.id}"><span>${esc(t(`f.${f.id}.label`))}</span><output id="o_${f.id}"></output></label>
       <input type="range" id="f_${f.id}" min="${f.min}" max="${f.max}" step="${f.step}">
-      <div class="row" style="justify-content:space-between"><span class="hint">${f.hint}</span><span class="base" id="b_${f.id}"></span></div>
+      <div class="row" style="justify-content:space-between"><span class="hint">${esc(t(`f.${f.id}.hint`))}</span><span class="base" id="b_${f.id}"></span></div>
       <div class="path">${f.path}</div>
     </div>`).join("");
   FIELDS.forEach(f=>{
@@ -463,11 +457,11 @@ function drawHP(){
   ghosts.forEach(g=>s+=`<path d="${linePath(g.d,W,Hh,maxL,yMax)}" fill="none" stroke="${g.c}" stroke-width="1.5" stroke-dasharray="4 4" opacity=".8"/>`);
   series.forEach(g=>s+=`<path d="${linePath(g.d,W,Hh,maxL,yMax)}" fill="none" stroke="${g.c}" stroke-width="${g.thin?1.8:2.5}"/>`);
   const L=Number($("lvl").value), x=PAD.l+(W-PAD.l-PAD.r)*(L-1)/(maxL-1);
-  s+=`<line x1="${x}" x2="${x}" y1="${PAD.t}" y2="${Hh-PAD.b}" stroke="#555" stroke-dasharray="2 3"/><text x="${x+4}" y="${PAD.t+10}">lvl ${L}</text>`;
+  s+=`<line x1="${x}" x2="${x}" y1="${PAD.t}" y2="${Hh-PAD.b}" stroke="#555" stroke-dasharray="2 3"/><text x="${x+4}" y="${PAD.t+10}">${esc(t("hp.lvl",L))}</text>`;
   $("hpChart").innerHTML=s;
-  $("hpChart").setAttribute("aria-label",`Health by level. At level ${L}: player ${fmt(playerHP(work,L))} with no picks${buildOf(work).picks?`, ${fmt(playerHPTyp(work,L))} with typical creator picks`:""}, average NPC ${fmt(npcHP(work,L,1,diff))}, boss NPC ${fmt(npcHP(work,L,1.7,diff))}.`);
+  $("hpChart").setAttribute("aria-label",t("hp.aria",L,fmt(playerHP(work,L)),buildOf(work).picks?fmt(playerHPTyp(work,L)):"",fmt(npcHP(work,L,1,diff)),fmt(npcHP(work,L,1.7,diff))));
   const ah=attrHealth(work);
-  $("hpNote").textContent=ah?`Includes +${fmt(ah)} health from attributes (attributeStatModifiers at the starting value ${val(work,"startAttr")}). `+(buildOf(work).picks?" The light line adds typical creator picks (their attribute and health chips). Items are not counted.":" Items are not counted."):"";
+  $("hpNote").textContent=ah?t("hp.note.attr",fmt(ah),nv(val(work,"startAttr")))+(buildOf(work).picks?t("hp.note.picks"):t("hp.note.items")):"";
 }
 function drawXP(){
   const W=520,Hh=260,maxL=Math.max(30,Number($("lvl").value));
@@ -478,11 +472,11 @@ function drawXP(){
   s+=`<path d="${linePath(before,W,Hh,maxL,yMax)}" fill="none" stroke="#999" stroke-width="1.5" stroke-dasharray="4 4" opacity=".9"/>`;
   s+=`<path d="${linePath(now,W,Hh,maxL,yMax)}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
   $("xpChart").innerHTML=s;
-  $("xpChart").setAttribute("aria-label",`XP curve. Level 10 needs ${fmt(xpTo(work,10))} total XP, level ${maxL} needs ${fmt(xpTo(work,maxL))}.`);
+  $("xpChart").setAttribute("aria-label",t("xp.aria",fmt(xpTo(work,10)),maxL,fmt(xpTo(work,maxL))));
 }
 function drawRoll(){
   const W=520, names=Object.keys(buildOf(work).typ), rows=Math.min(names.length,10), Hh=34+rows*30;
-  const kinds=[["base","#8b8c94","no picks"],["typ","var(--good)","typical picks"],["best","#8cc4f5","best for that attribute"]];
+  const kinds=[["base","#8b8c94",t("roll.base")],["typ","var(--good)",t("roll.typ")],["best","#8cc4f5",t("roll.best")]];
   const vals=Object.fromEntries(kinds.map(([k])=>[k,attrsOf(work,k)]));
   const bonus=v=>(v-10)*val(work,"attrMod");
   const all=kinds.flatMap(([k])=>names.map(n=>bonus(vals[k][n])));
@@ -501,10 +495,10 @@ function drawRoll(){
     s+=`<text x="${W-6}" y="${y+15}" text-anchor="end" style="fill:var(--text)">${fmtSigned(bonus(vals.typ[n]))}</text>`;
   });
   $("rollChart").innerHTML=s;
-  $("rollLegend").innerHTML=kinds.map(([,c,l])=>`<span><i style="background:${c}"></i>${l}</span>`).join("");
+  $("rollLegend").innerHTML=kinds.map(([,c,l])=>`<span><i style="background:${c}"></i>${esc(l)}</span>`).join("");
   const b=buildOf(work);
-  $("rollNote").textContent=b.picks?`From ${b.cats} creator categories (${b.picks} picks). Typical = the average trait on each page; best = the top picks for that one attribute, ignoring unlock rules. Capped at the world's max starting attribute (${num((work.attributeSettings||{}).maxStartingAttribute,999)}). The number is the typical build.`:"This world has no creator categories, so every new character starts at the base value.";
-  $("rollChart").setAttribute("aria-label","Roll bonus per attribute, typical build: "+names.map(n=>`${n} ${fmtSigned(bonus(vals.typ[n]))}`).join(", "));
+  $("rollNote").textContent=b.picks?t("roll.note",b.cats,b.picks,num((work.attributeSettings||{}).maxStartingAttribute,999)):t("roll.none");
+  $("rollChart").setAttribute("aria-label",t("roll.aria")+names.map(n=>`${n} ${fmtSigned(bonus(vals.typ[n]))}`).join(t("sep")));
 }
 function niceMax(v){if(v<=0)return 10;const p=Math.pow(10,Math.floor(Math.log10(v)));return Math.ceil(v/p*2)/2*p;}
 
@@ -516,23 +510,24 @@ function drawReadouts(){
   const rNow=npcHP(work,L,1,diff)/php(work), rWas=npcHP(base,L,1,diff)/php(base);
   const bNow=rollBonus(work,cur("startAttr")), bWas=rollBonus(base,was("startAttr"));
   const xNow=xpTo(work,L), xWas=xpTo(base,L);
-  const cmp=(n,w,up,down,eps)=>Math.abs(n-w)<=eps?tag("same","same as before"):tag(n>w?up:down,(n>w?up:down)+" than before");
+  const cmp=(n,w,up,down,eps)=>Math.abs(n-w)<=eps?tag("same",t("tag.same")):tag(n>w?up:down,t("tag."+(n>w?up:down)));
+  const wasTxt=v=>`<span class="empty">${esc(t("ro.was",v))}</span>`, rx=v=>v.toLocaleString(LOCALES[LANG],{minimumFractionDigits:2,maximumFractionDigits:2});
   $("readouts").innerHTML=`
-    <div class="ro"><div class="k">Average foe's health vs yours at level ${L}</div>
-      <div class="v">${rNow.toFixed(2)}×</div><div class="d">${cmp(rNow,rWas,"harder","easier",0.005)} <span class="empty">was ${rWas.toFixed(2)}×</span></div></div>
-    <div class="ro"><div class="k">A new character's attribute bonus on every roll</div>
-      <div class="v">${fmtSigned(bNow)}</div><div class="d">${cmp(-bNow,-bWas,"harder","easier",0.05)} <span class="empty">was ${fmtSigned(bWas)}</span></div></div>
-    <div class="ro"><div class="k">Total XP to reach level ${L}</div>
-      <div class="v">${fmt(xNow)}</div><div class="d">${cmp(xNow,xWas,"slower","faster",0.5)} <span class="empty">was ${fmt(xWas)}</span></div></div>`;
+    <div class="ro"><div class="k">${esc(t("ro.foe",L))}</div>
+      <div class="v">${rx(rNow)}×</div><div class="d">${cmp(rNow,rWas,"harder","easier",0.005)} ${wasTxt(rx(rWas)+"×")}</div></div>
+    <div class="ro"><div class="k">${esc(t("ro.roll"))}</div>
+      <div class="v">${fmtSigned(bNow)}</div><div class="d">${cmp(-bNow,-bWas,"harder","easier",0.05)} ${wasTxt(fmtSigned(bWas))}</div></div>
+    <div class="ro"><div class="k">${esc(t("ro.xp",L))}</div>
+      <div class="v">${fmt(xNow)}</div><div class="d">${cmp(xNow,xWas,"slower","faster",0.5)} ${wasTxt(fmt(xWas))}</div></div>`;
 }
 
 // ---------- Changes ----------
 function drawChanges(){
   const items=FIELDS.filter(f=>cur(f.id)!==was(f.id)).map(f=>{
     const a=was(f.id), b=cur(f.id);
-    return `<li><b>${f.label}</b> ${a} → ${b}<div><code>${f.path}</code></div><div class="why">${f.why(a,b)}</div></li>`;
+    return `<li><b>${esc(t(`f.${f.id}.label`))}</b> ${nv(a)} → ${nv(b)}<div><code>${f.path}</code></div><div class="why">${esc(t(`f.${f.id}.why`,a,b))}</div></li>`;
   });
-  $("changes").innerHTML=items.length?items.join(""):`<li class="empty">Nothing changed yet. Pick a template or move a slider.</li>`;
+  $("changes").innerHTML=items.length?items.join(""):`<li class="empty">${esc(t("chg.empty"))}</li>`;
 }
 
 // ---------- Content ----------
@@ -549,19 +544,20 @@ function drawContent(){
     const full=goal===1?capShare(work,c,readySet):null;
     const target=c.stages[0], amount=full?full.f:Math.min(1,ok/target);
     scores.push({name:c.name,score:ok?Math.max(1,Math.floor(amount*rd*100)):0});
-    if(n&&ok<n) gaps.push(`${c.name}: ${n-ok} of ${n} not ready (`+Object.entries(missingBy(c,recs,R)).map(([lab,x])=>`${x} missing ${lab}`).join(", ")+`)`);
-    if(!full&&ok<target) gaps.push(`${c.name}: ${target-ok} more ready ${target-ok===1?"entry":"entries"} for a starter world`);
-    if(full&&full.f<1) gaps.push(`${c.name}: ${Math.floor(full.f*rd*100)}% of the full-world bar (`+full.parts.map(x=>`${x.k} ${fmt(x.used)} of ${fmt(x.cap)} ${x.m==="count"?"entries":"chars"}${x.share?" (an average area's share of this world's text; Voyage sets no limit on this section)":""}`).join("; ")+`)`);
+    const an=areaName(c.name);
+    if(n&&ok<n) gaps.push(t("gap.notReady",an,n-ok,n,Object.entries(missingBy(c,recs,R)).map(([lab,x])=>t("gap.missing",x,chkName(lab))).join(t("sep"))));
+    if(!full&&ok<target) gaps.push(t("gap.more",an,target-ok));
+    if(full&&full.f<1) gaps.push(t("gap.full",an,Math.floor(full.f*rd*100),full.parts.map(x=>t("gap.part",x.k,fmt(x.used),fmt(x.cap),x.m==="count",x.share)).join("; ")));
     const sc=amount*rd, col=sc>=.95?"var(--good)":sc>=.5?"var(--avg)":"var(--bad)";
-    return `<div class="bar"><span>${c.name}</span><div class="track"><div class="fill" style="width:${(sc*100).toFixed(0)}%;background:${col}"></div></div><span class="num">${full?`${Math.floor(full.f*100)}% of limit`:`${ok} / ${target}`}${n?` · ${Math.floor(rd*100)}% ready`:""}</span></div>`;
+    return `<div class="bar"><span>${esc(an)}</span><div class="track"><div class="fill" style="width:${(sc*100).toFixed(0)}%;background:${col}"></div></div><span class="num">${full?esc(t("bar.limit",Math.floor(full.f*100))):`${ok} / ${target}`}${n?esc(t("bar.ready",Math.floor(rd*100))):""}</span></div>`;
   }).join("");
   $("overallPct").textContent=Math.floor(scores.reduce((t,x)=>t+x.score,0)/scores.length)+"%";
   drawPie(scores);
-  const empty=CONTENT.filter(c=>!c.keys.some(k=>Object.keys(sec(work,k)).length)).map(c=>c.name);
+  const empty=CONTENT.filter(c=>!c.keys.some(k=>Object.keys(sec(work,k)).length)).map(c=>areaName(c.name));
   const seeds=["authorSeeds","characterArchetypes","regionArchetypes","locationArchetypes","encounterElements"].map(k=>{const d=DEFAULT_SEEDS[k]||[];const ks=Object.keys(sec(work,k));return [k,ks.length,ks.filter(x=>!d.includes(x)).length];});
-  $("seedsTxt").textContent="AI generation seeds (not scored): "+seeds.map(([k,n,own])=>`${k} ${n}${own?` (${own} your own)`:" (Voyage's)"}`).join(" · ");
-  $("overallTxt").textContent=`of a ${GOALS[goal].name.toLowerCase()}. `+(empty.length?"Not started: "+empty.join(", "):"Every area has a start.");
-  $("gaps").innerHTML=gaps.length?gaps.map(g=>`<li>${esc(g)}</li>`).join(""):`<li class="empty">Nothing missing for a ${GOALS[goal].name.toLowerCase()}.</li>`;
+  $("seedsTxt").textContent=t("seeds")+seeds.map(([k,n,own])=>`${k} ${n}${own?t("seeds.own",own):t("seeds.voyage")}`).join(" · ");
+  $("overallTxt").textContent=t(`goal.${goal}.of`)+" "+(empty.length?t("overall.notStarted")+empty.join(t("sep")):t("overall.allStarted"));
+  $("gaps").innerHTML=gaps.length?gaps.map(g=>`<li>${esc(g)}</li>`).join(""):`<li class="empty">${esc(t(`goal.${goal}.none`))}</li>`;
 }
 
 function drawPie(scores){
@@ -577,18 +573,18 @@ function drawPie(scores){
     const a2=ang+x.f*2*Math.PI, m=(ang+a2)/2;
     s+= x.f>=0.9995 ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${x.c}" stroke="#111" stroke-width="2"/>`
                     : `<path d="M${cx},${cy} L${pt(r,ang)} A${r},${r} 0 ${x.f>.5?1:0} 1 ${pt(r,a2)} Z" fill="${x.c}" stroke="#111" stroke-width="2"/>`;
-    if(x.f>=.035){const [tx,ty]=pt(r*(x.grey?.5:.68),m).split(",");s+=`<text x="${tx}" y="${(+ty+5).toFixed(1)}" text-anchor="middle" style="fill:${x.grey?"var(--muted)":"#f2f2f4"};font-weight:600">${x.grey?"still to build ":""}${Math.round(x.f*100)}%</text>`;}
+    if(x.f>=.035){const [tx,ty]=pt(r*(x.grey?.5:.68),m).split(",");s+=`<text x="${tx}" y="${(+ty+5).toFixed(1)}" text-anchor="middle" style="fill:${x.grey?"var(--muted)":"#f2f2f4"};font-weight:600">${x.grey?esc(t("pie.left")):""}${Math.round(x.f*100)}%</text>`;}
     ang=a2;
   });
   $("pie").innerHTML=s;
-  $("pie").setAttribute("aria-label","Completion by area: "+scores.map(x=>`${x.name} ${x.score}`).join(", "));
-  $("pieLegend").innerHTML=scores.map((x,i)=>`<li><i style="background:${PIE[i%PIE.length]}"></i>${esc(x.name)} <b>[${x.score}]</b></li>`).join("")+`<li><i style="background:var(--panel2);border:1px solid var(--line)"></i>Still to build</li>`;
+  $("pie").setAttribute("aria-label",t("pie.aria")+scores.map(x=>`${areaName(x.name)} ${x.score}`).join(t("sep")));
+  $("pieLegend").innerHTML=scores.map((x,i)=>`<li><i style="background:${PIE[i%PIE.length]}"></i>${esc(areaName(x.name))} <b>[${x.score}]</b></li>`).join("")+`<li><i style="background:var(--panel2);border:1px solid var(--line)"></i>${esc(t("pie.leftLg"))}</li>`;
   const avg=names=>{const v=scores.filter(x=>names(x.name));return v.length?Math.round(v.reduce((t,x)=>t+x.score,0)/v.length):0;};
   const set=avg(n=>SETTING.includes(n)), play=avg(n=>!SETTING.includes(n));
   $("layers").innerHTML=`
-    <div class="layer" style="background:#2f5e58"><b>Authored setting</b><span>lore, places, factions</span><big>${set}%</big></div>
-    <div class="layer" style="background:#6a3446"><b>Active play layer</b><span>NPCs, quests, events, starts, creator, modes, mechanics, items</span><big>${play}%</big></div>
-    <div class="layer overall-hex"><b>Overall</b><big>${$("overallPct").textContent}</big><span>as a ${GOALS[goal].name.toLowerCase()}</span></div>`;
+    <div class="layer" style="background:#2f5e58"><b>${esc(t("layer.set"))}</b><span>${esc(t("layer.setSub"))}</span><big>${set}%</big></div>
+    <div class="layer" style="background:#6a3446"><b>${esc(t("layer.play"))}</b><span>${esc(t("layer.playSub"))}</span><big>${play}%</big></div>
+    <div class="layer overall-hex"><b>${esc(t("layer.overall"))}</b><big>${$("overallPct").textContent}</big><span>${esc(t(`goal.${goal}.as`))}</span></div>`;
 }
 
 // ---------- Render ----------
@@ -599,10 +595,10 @@ function render(){
     el.min=Math.min(f.min,v); el.max=Math.max(f.max,v);
     el.step=Number.isInteger(Math.round((v-f.min)/f.step*1e6)/1e6)?f.step:"any";
     if(Number(el.value)!==v) el.value=v;
-    $("o_"+f.id).textContent=v;
+    $("o_"+f.id).textContent=nv(v);
     const raw=f.get(base), def=f.get(clone(DEFAULT_WORLD));
-    const src=raw==null?"not set, Voyage default":Number(raw)===def?"world, same as Voyage default":"from this world";
-    const be=$("b_"+f.id); be.textContent=(v===b?`loaded: ${b}`:`loaded: ${b} (${pct(b,v)})`)+` · ${fileName?src:"Voyage default"}`; be.classList.toggle("changed",v!==b);
+    const src=raw==null?t("src.unset"):Number(raw)===def?t("src.same"):t("src.world");
+    const be=$("b_"+f.id); be.textContent=t("base.loaded",nv(b),v===b?"":pct(b,v))+` · ${fileName?src:t("src.default")}`; be.classList.toggle("changed",v!==b);
   });
   [...$("templates").children].forEach((b,i)=>{b.classList.toggle("active",activeTpl===i);b.setAttribute("aria-pressed",String(activeTpl===i));});
   drawReadouts(); drawHP(); drawXP(); drawRoll(); drawChanges(); drawContent();
@@ -617,27 +613,28 @@ function unwrap(o){
     const hit=level.find(isWorld); if(hit) return hit;
     level=level.flatMap(x=>x&&typeof x==="object"&&!Array.isArray(x)?Object.values(x).filter(v=>v&&typeof v==="object"&&!Array.isArray(v)):[]);
   }
-  throw new Error("No Voyage world found in this file (looked for npcs / storyStarts / heroesVersion)");
+  throw new Error(t("err.noWorld"));
 }
+const DIFF={"very easy":0.5,"easy":0.75,"medium":1,"hard":1.25,"very hard":1.5};
+let MODES=[];   // the loaded world's game modes that name a Voyage difficulty
+function buildDiff(keep){
+  const el=$("diff"), i=keep?el.selectedIndex:-1;
+  el.innerHTML=Object.entries(DIFF).map(([n,v])=>`<option value="${v}"${v===1?" selected":""}>${esc(t("diff."+n))}</option>`).join("")
+    +(MODES.length?`<optgroup label="${esc(t("diff.modes"))}">`+MODES.map(([k,m])=>`<option value="${DIFF[m.difficulty]}">${esc(m.name||k)} (${esc(t("diff."+m.difficulty).toLocaleLowerCase(LOCALES[LANG]))})</option>`).join("")+`</optgroup>`:"");
+  if(i>=0&&i<el.options.length) el.selectedIndex=i;
+}
+function drawSrc(){ $("src").textContent=fileName?`${fileName}${base.heroesVersion?` (V${base.heroesVersion})`:""}`:t("src.none"); }
 function loadWorld(obj,name){
   obj=unwrap(obj);
   base=clone(obj); work=clone(obj); fileName=name; activeTpl=null; WORLD_TEXT=Math.max(1,vsize(obj));
-  const DIFF={"very easy":0.5,"easy":0.75,"medium":1,"hard":1.25,"very hard":1.5};
-  const modes=Object.entries(obj.gameModes||{}).filter(([,m])=>m&&DIFF[m.difficulty]!=null);
-  $("diff").innerHTML=Object.entries(DIFF).map(([n,v])=>`<option value="${v}"${v===1?" selected":""}>${n[0].toUpperCase()+n.slice(1)}</option>`).join("")
-    +(modes.length?`<optgroup label="This world's game modes">`+modes.map(([k,m])=>`<option value="${DIFF[m.difficulty]}">${esc(m.name||k)} (${m.difficulty})</option>`).join("")+`</optgroup>`:"");
-  $("src").textContent=`${name}${obj.heroesVersion?` (V${obj.heroesVersion})`:""}`;
+  MODES=Object.entries(obj.gameModes||{}).filter(([,m])=>m&&Object.hasOwn(DIFF,m.difficulty));
+  buildDiff(false); drawSrc();
   render();
 }
-$("file").addEventListener("change",e=>{
-  const f=e.target.files[0]; if(!f) return;
-  f.text().then(t=>loadWorld(JSON.parse(t.replace(/^\uFEFF/,"")),f.name)).catch(err=>alert("Could not read that file: "+err.message));
-});
+const readFile=f=>f.text().then(txt=>loadWorld(JSON.parse(txt.replace(/^\uFEFF/,"")),f.name)).catch(err=>alert(t("err.read")+err.message));
+$("file").addEventListener("change",e=>{ const f=e.target.files[0]; if(f) readFile(f); });
 document.addEventListener("dragover",e=>e.preventDefault());
-document.addEventListener("drop",e=>{
-  e.preventDefault(); const f=e.dataTransfer.files[0]; if(!f) return;
-  f.text().then(t=>loadWorld(JSON.parse(t.replace(/^\uFEFF/,"")),f.name)).catch(err=>alert("Could not read that file: "+err.message));
-});
+document.addEventListener("drop",e=>{ e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) readFile(f); });
 $("reset").onclick=()=>{work=clone(base);activeTpl=null;render();};
 $("export").onclick=()=>{
   const blob=new Blob([JSON.stringify(work,null,2)],{type:"application/json"});
@@ -646,8 +643,21 @@ $("export").onclick=()=>{
 };
 $("diff").onchange=render; $("lvl").onchange=render;
 
-buildLevels(); buildFields(); buildTemplates();
-GOALS.forEach((g,i)=>{const b=document.createElement("button");b.className="tpl";b.innerHTML=`<b>${g.name}</b><span>${g.desc}</span>`;b.onclick=()=>{goal=i;drawContent();};$("goal").appendChild(b);});
+function buildGoals(){
+  $("goal").innerHTML="";
+  GOALS.forEach(i=>{const b=document.createElement("button");b.className="tpl";b.innerHTML=`<b>${esc(t(`goal.${i}.name`))}</b><span>${esc(t(`goal.${i}.desc`))}</span>`;b.onclick=()=>{goal=i;drawContent();};$("goal").appendChild(b);});
+}
+function applyLang(){
+  document.documentElement.lang=LOCALES[LANG]; document.title=t("doc.title");
+  document.querySelectorAll("[data-i18n]").forEach(el=>{el.innerHTML=t(el.dataset.i18n);});   // page text only, never world data
+  document.querySelectorAll("[data-i18n-title]").forEach(el=>{el.title=t(el.dataset.i18nTitle);});
+  $("lang").value=LANG;
+  buildFields(); buildTemplates(); buildGoals(); buildDiff(true); drawSrc();
+}
+$("lang").innerHTML=Object.entries(LANGS).map(([k,n])=>`<option value="${k}">${n}</option>`).join("");
+$("lang").onchange=e=>{ LANG=e.target.value; try{localStorage.setItem("tuner.lang",LANG);}catch(err){} applyLang(); render(); };
+
+buildLevels(); applyLang();
 render();
 window.__tuner={sec,loadWorld,readyCounts,CONTENT,refs,areaRecords,missingBy,FIELDS,cur,was,TEMPLATES,work:()=>work};
 </script>
